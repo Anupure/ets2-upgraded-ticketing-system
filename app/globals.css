@@ -77,3 +77,22 @@ button{font:inherit}
 .create-form-footer p{max-width:390px;margin:0}
 .form-error{padding:12px;border:1px solid #8c4545;border-radius:8px;background:#321a1a;color:#ffd0d0;font-size:12px}
 @media(max-width:620px){.create-journey-form{padding:17px}.create-form-grid{grid-template-columns:1fr}.create-form-footer{align-items:stretch;flex-direction:column}.create-form-footer .button{width:100%}.create-stop-row{grid-template-columns:26px minmax(0,1fr) auto}.create-stop-row .button{padding:0 5px;font-size:11px}}
+
+
+.manifest-link{display:inline-flex;margin-top:8px;color:var(--accent);font-size:11px;font-weight:800}
+.manifest-section{margin:28px 0 70px}
+.manifest-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:18px}
+.manifest-list{display:grid;gap:10px}
+.manifest-row{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(110px,.55fr) minmax(170px,.8fr);align-items:center;gap:18px;padding:17px 19px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.manifest-person{display:flex;align-items:center;gap:13px;min-width:0}
+.manifest-avatar{width:42px;height:42px;flex:0 0 42px;border-radius:50%;object-fit:cover;background:var(--panel-2)}
+.manifest-avatar-fallback{display:grid;place-items:center;color:var(--accent);font-weight:800}
+.manifest-person-details{display:grid;gap:4px;min-width:0}
+.manifest-person-details strong{font-size:13px;overflow-wrap:anywhere}
+.manifest-person-details small,.manifest-person-details span{font-size:10px;color:var(--muted);overflow-wrap:anywhere}
+.manifest-status{display:grid;gap:5px;font:10px 'DM Mono',monospace;color:var(--text)}
+.manifest-status small{color:var(--muted)}
+.manifest-actions{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.manifest-actions .button{min-height:40px;padding:0 12px;font-size:11px}
+.manifest-terminal{font-size:10px;color:var(--muted)}
+@media(max-width:760px){.manifest-toolbar{align-items:stretch;flex-direction:column}.manifest-row{grid-template-columns:1fr;gap:12px}.manifest-actions{justify-content:flex-start}.manifest-actions .button{width:100%}}
