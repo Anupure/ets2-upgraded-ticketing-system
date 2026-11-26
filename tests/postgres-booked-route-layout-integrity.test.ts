@@ -5,16 +5,16 @@ import { describe, expect, it } from "vitest";
 const prisma = new PrismaClient();
 const integration = process.env.DATABASE_URL ? describe : describe.skip;
 
-async function waitForJourneyRowLock(timeoutMs = 5000): Promise<void> {
+async function waitForJourneyAdvisoryLock(timeoutMs = 5000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const rows = await prisma.$queryRawUnsafe(
-      "SELECT EXISTS (SELECT 1 FROM pg_locks l JOIN pg_stat_activity a ON a.pid = l.pid WHERE l.locktype = 'transactionid' AND NOT l.granted AND a.query ILIKE '%FROM journeys%' AND a.query ILIKE '%FOR UPDATE%') AS waiting"
+      "SELECT EXISTS (SELECT 1 FROM pg_locks l JOIN pg_stat_activity a ON a.pid = l.pid WHERE l.locktype = 'advisory' AND l.mode = 'ExclusiveLock' AND NOT l.granted AND a.query ILIKE '%UPDATE%') AS waiting"
     ) as Array<{ waiting: boolean }>;
     if (rows[0]?.waiting) return;
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
-  throw new Error("Structural edit did not wait for the journey row lock");
+  throw new Error("Structural edit did not wait for the journey advisory lock");
 }
 integration("booked route and bus layout integrity", () => {
   it("allows concurrent journey creation with nested stops", async () => {
@@ -240,6 +240,7 @@ integration("booked route and bus layout integrity", () => {
       const bookingMayContinue = new Promise<void>((resolve) => { releaseBooking = resolve; });
 
       const booking = prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock_shared(742, 20261127)`;
         await tx.$queryRaw`SELECT id FROM journeys WHERE id = ${journey.id}::uuid FOR UPDATE`;
         signalJourneyLocked();
         await bookingMayContinue;
@@ -282,7 +283,7 @@ integration("booked route and bus layout integrity", () => {
 
       let lockWaitError: unknown;
       try {
-        // Observe the blocked FOR UPDATE row-lock request rather than relying on a sleep.
+        // Observe the ungranted exclusive advisory lock rather than relying on a sleep.
         await waitForJourneyRowLock();
       } catch (error) {
         lockWaitError = error;
@@ -333,6 +334,7 @@ integration("booked route and bus layout integrity", () => {
       const journeyLocked = new Promise<void>((resolve) => { signalJourneyLocked = resolve; });
       const bookingMayContinue = new Promise<void>((resolve) => { releaseBooking = resolve; });
       const booking = prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT pg_advisory_xact_lock_shared(742, 20261127)`;
         await tx.$queryRawUnsafe("SELECT id FROM journeys WHERE id = $1::uuid FOR UPDATE", journey.id);
         signalJourneyLocked();
         await bookingMayContinue;
