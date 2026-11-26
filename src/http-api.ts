@@ -138,26 +138,26 @@ export function createApiHandler({ db, getSession }: ApiDependencies) {
         return response(200, { seats: await getSeatMap(db, journeyId, from, to) });
       }
 
-      if (method === "POST" && path === "/api/journeys/tickets") {
+      const purchaseMatch = path.match(/^\/api\/journeys\/([^/]+)\/tickets$/);\n      if (method === "POST" && purchaseMatch) {
         if (!session) return response(401, { error: { code: "UNAUTHENTICATED", message: "Sign in to purchase a ticket." } });
         const body = objectBody(request.body);
         if (!body || !hasOnlyKeys(body, ["journeyId", "originStopId", "destinationStopId", "seatNumber"]) ||
             !isUuid(body.journeyId) || !isUuid(body.originStopId) ||
             !isUuid(body.destinationStopId) || typeof body.seatNumber !== "string" ||
             body.seatNumber.length < 1 || body.seatNumber.length > 10) {
-          return response(400, { error: { code: "INVALID_BODY", message: "Provide journeyId, originStopId, destinationStopId and seatNumber only." } });
+          return response(400, { error: { code: "INVALID_BODY", message: "Provide originStopId, destinationStopId and seatNumber only." } });
         }
         const idempotencyKey = header(request, "Idempotency-Key");
         if (!idempotencyKey || idempotencyKey.length > 140) {
           return response(400, { error: { code: "IDEMPOTENCY_KEY_REQUIRED", message: "Provide a stable Idempotency-Key header." } });
         }
         const journey = await db.journey.findUnique({
-          where: { id: body.journeyId }, select: { ticketPrice: true },
+          where: { id: purchaseMatch[1] }, select: { ticketPrice: true },
         });
         if (!journey) return response(404, { error: { code: "JOURNEY_NOT_FOUND", message: "Journey not found." } });
         const result = await purchaseTicket(db, {
           userId: session.userId,
-          journeyId: body.journeyId,
+          journeyId: purchaseMatch[1]!,
           originStopId: body.originStopId,
           destinationStopId: body.destinationStopId,
           seatNumber: body.seatNumber,
