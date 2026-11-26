@@ -19,7 +19,7 @@ BEGIN
 
   -- Serialize route edits with booking transactions, which lock the journey row.
   FOR affected_journey_id IN
-    SELECT DISTINCT id
+    SELECT id
     FROM journeys
     WHERE id = ANY(affected_journey_ids)
     ORDER BY id
