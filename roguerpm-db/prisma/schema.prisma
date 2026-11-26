@@ -1,0 +1,553 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  PASSENGER
+  MODERATOR
+  OPERATOR
+  ADMIN
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  DELETED
+}
+
+enum Platform {
+  YOUTUBE
+}
+
+enum JourneyStatus {
+  DRAFT
+  SCHEDULED
+  BOOKING_OPEN
+  BOARDING
+  IN_PROGRESS
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum StopStatus {
+  UPCOMING
+  ARRIVED
+  BOARDING_OPEN
+  DEPARTED
+  SKIPPED
+}
+
+enum TicketStatus {
+  CONFIRMED
+  CHECKED_IN
+  BOARDED
+  COMPLETED
+  NO_SHOW
+  CANCELLED
+  LEFT_BEHIND
+}
+
+enum SeatType {
+  STANDARD
+  WINDOW
+  AISLE
+  ACCESSIBLE
+  OPERATOR
+  UNAVAILABLE
+}
+
+enum SeatReservationStatus {
+  HELD
+  CONFIRMED
+  OCCUPIED
+  RELEASED
+  EXPIRED
+}
+
+enum PassengerJourneyStatus {
+  BOOKED
+  CHECKED_IN
+  ONBOARD
+  COMPLETED
+  NO_SHOW
+  LEFT_BEHIND
+  CANCELLED
+}
+
+enum BoardingEventType {
+  CHECK_IN
+  BOARDED
+  DISEMBARKED
+  NO_SHOW
+  REJECTED
+  LEFT_BEHIND
+}
+
+enum WalletTransactionType {
+  INITIAL_BONUS
+  TICKET_PURCHASE
+  TICKET_REFUND
+  REWARD
+  ADMIN_CREDIT
+  ADMIN_DEBIT
+  EVENT_REWARD
+}
+
+enum BreakType {
+  PERSONAL
+  MANDATORY
+}
+
+enum BreakStatus {
+  REQUESTED
+  ACCEPTED
+  BREAK_STARTED
+  RETURNED
+  REJECTED
+  EXPIRED
+  LEFT_BEHIND
+  CANCELLED
+  COMPLETED
+}
+
+enum BreakCreditTransactionType {
+  INITIAL_ALLOWANCE
+  BREAK_USED
+  ADMIN_GRANT
+  REFUND
+}
+
+enum StreamStatus {
+  SCHEDULED
+  LIVE
+  ENDED
+  DISCONNECTED
+}
+
+model User {
+  id          String     @id @default(uuid()) @db.Uuid
+  username    String     @unique @db.VarChar(30)
+  displayName String     @map("display_name") @db.VarChar(60)
+  email       String?    @unique @db.VarChar(255)
+  name        String?    @db.VarChar(120)
+  emailVerified DateTime? @map("email_verified") @db.Timestamptz(3)
+  image       String?    @db.Text
+  avatarId    String?    @map("avatar_id") @db.Uuid
+  role        UserRole   @default(PASSENGER)
+  status      UserStatus @default(ACTIVE)
+  createdAt   DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt   DateTime   @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  avatar                Avatar?                  @relation(fields: [avatarId], references: [id], onDelete: SetNull)
+  accounts              Account[]
+  sessions              Session[]
+  wallet                Wallet?
+  chatIdentities        ChatIdentity[]
+  tickets               Ticket[]
+  passengerJourneys     PassengerJourney[]
+  breakRequests         BreakRequest[]
+  createdJourneys       Journey[]                 @relation("JourneyCreator")
+  journeyEvents         JourneyEvent[]
+  auditLogs             AuditLog[]                @relation("AuditActor")
+  walletTransactions    WalletTransaction[]      @relation("WalletTransactionActor")
+
+  @@index([role, status])
+  @@map("users")
+}
+
+model Avatar {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @db.VarChar(60)
+  imageUrl  String   @map("image_url") @db.Text
+  isActive  Boolean  @default(true) @map("is_active")
+  sortOrder Int      @default(0) @map("sort_order")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  users User[]
+
+  @@index([isActive, sortOrder])
+  @@map("avatars")
+}
+
+// Auth.js / NextAuth adapter models.
+model Account {
+  id                String  @id @default(uuid()) @db.Uuid
+  userId            String  @map("user_id") @db.Uuid
+  type              String  @db.VarChar(255)
+  provider          String  @db.VarChar(255)
+  providerAccountId String  @map("provider_account_id") @db.VarChar(255)
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String? @db.VarChar(255)
+  scope             String? @db.Text
+  id_token          String? @db.Text
+  session_state     String? @db.VarChar(255)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(uuid()) @db.Uuid
+  sessionToken String   @unique @map("session_token") @db.VarChar(255)
+  userId       String   @map("user_id") @db.Uuid
+  expires      DateTime @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String   @db.VarChar(255)
+  token      String   @unique @db.VarChar(255)
+  expires    DateTime @db.Timestamptz(3)
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model ChatIdentity {
+  id                String   @id @default(uuid()) @db.Uuid
+  userId            String   @map("user_id") @db.Uuid
+  platform          Platform @default(YOUTUBE)
+  platformUserId    String   @map("platform_user_id") @db.VarChar(255)
+  platformUsername  String   @map("platform_username") @db.VarChar(100)
+  linkedAt          DateTime @default(now()) @map("linked_at") @db.Timestamptz(3)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([platform, platformUserId])
+  @@index([userId])
+  @@map("chat_identities")
+}
+
+model Wallet {
+  id        String   @id @default(uuid()) @db.Uuid
+  userId    String   @unique @map("user_id") @db.Uuid
+  balance   BigInt   @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  transactions WalletTransaction[]
+
+  @@map("wallets")
+}
+
+model WalletTransaction {
+  id             String                @id @default(uuid()) @db.Uuid
+  walletId       String                @map("wallet_id") @db.Uuid
+  actorId        String?               @map("actor_id") @db.Uuid
+  amount         BigInt
+  transactionType WalletTransactionType @map("transaction_type")
+  referenceType  String?               @map("reference_type") @db.VarChar(60)
+  referenceId    String?               @map("reference_id") @db.Uuid
+  idempotencyKey String                @unique @map("idempotency_key") @db.VarChar(160)
+  description    String?               @db.Text
+  createdAt      DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  wallet Wallet @relation(fields: [walletId], references: [id], onDelete: Restrict)
+  actor  User?  @relation("WalletTransactionActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([walletId, createdAt])
+  @@index([referenceType, referenceId])
+  @@map("wallet_transactions")
+}
+
+model BusLayout {
+  id        String   @id @default(uuid()) @db.Uuid
+  name      String   @db.VarChar(100)
+  capacity  Int
+  layout    Json     @default("{}") @map("layout_json")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  seats    BusSeat[]
+  journeys Journey[]
+
+  @@map("bus_layouts")
+}
+
+model BusSeat {
+  id          String   @id @default(uuid()) @db.Uuid
+  busLayoutId String   @map("bus_layout_id") @db.Uuid
+  seatNumber  String   @map("seat_number") @db.VarChar(10)
+  rowNumber   Int      @map("row_number")
+  columnNumber Int     @map("column_number")
+  seatType    SeatType @default(STANDARD) @map("seat_type")
+  isBookable  Boolean  @default(true) @map("is_bookable")
+
+  busLayout        BusLayout         @relation(fields: [busLayoutId], references: [id], onDelete: Cascade)
+  seatReservations SeatReservation[]
+
+  @@unique([busLayoutId, seatNumber])
+  @@index([busLayoutId, rowNumber, columnNumber])
+  @@map("bus_seats")
+}
+
+model Journey {
+  id                    String        @id @default(uuid()) @db.Uuid
+  journeyNumber         BigInt        @unique @default(autoincrement()) @map("journey_number")
+  name                  String        @db.VarChar(120)
+  description           String?       @db.Text
+  busLayoutId           String        @map("bus_layout_id") @db.Uuid
+  status                JourneyStatus @default(DRAFT)
+  ticketPrice           BigInt        @default(150) @map("ticket_price")
+  breakIntervalMinutes  Int           @default(150) @map("break_interval_minutes")
+  personalBreakLimit    Int           @default(2) @map("personal_break_limit")
+  personalBreakSeconds  Int           @default(120) @map("personal_break_seconds")
+  gracePeriodSeconds    Int           @default(30) @map("grace_period_seconds")
+  currentStopSequence   Int?          @map("current_stop_sequence")
+  departureAt           DateTime?     @map("departure_at") @db.Timestamptz(3)
+  startedAt             DateTime?     @map("started_at") @db.Timestamptz(3)
+  completedAt           DateTime?     @map("completed_at") @db.Timestamptz(3)
+  createdBy             String        @map("created_by") @db.Uuid
+  createdAt             DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  busLayout        BusLayout         @relation(fields: [busLayoutId], references: [id], onDelete: Restrict)
+  creator          User              @relation("JourneyCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  stops            JourneyStop[]
+  tickets          Ticket[]
+  seatReservations SeatReservation[]
+  passengerJourneys PassengerJourney[]
+  breakRequests    BreakRequest[]
+  streamSessions   StreamSession[]
+  events           JourneyEvent[]
+
+  @@index([status, createdAt])
+  @@map("journeys")
+}
+
+model JourneyStop {
+  id                String    @id @default(uuid()) @db.Uuid
+  journeyId         String    @map("journey_id") @db.Uuid
+  sequence          Int
+  name              String    @db.VarChar(120)
+  locationDescription String? @map("location_description") @db.Text
+  latitude          Decimal?  @db.Decimal(9, 6)
+  longitude         Decimal?  @db.Decimal(9, 6)
+  arrivalAt         DateTime? @map("arrival_at") @db.Timestamptz(3)
+  departedAt        DateTime? @map("departed_at") @db.Timestamptz(3)
+  status            StopStatus @default(UPCOMING)
+  createdAt         DateTime  @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  journey            Journey       @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  originTickets      Ticket[]      @relation("TicketOrigin")
+  destinationTickets Ticket[]      @relation("TicketDestination")
+  boardingEvents     BoardingEvent[]
+
+  @@unique([journeyId, sequence])
+  @@index([journeyId, status])
+  @@map("journey_stops")
+}
+
+model Ticket {
+  id                String       @id @default(uuid()) @db.Uuid
+  ticketNumber      String       @unique @map("ticket_number") @db.VarChar(30)
+  idempotencyKey    String       @unique @map("idempotency_key") @db.VarChar(160)
+  journeyId         String       @map("journey_id") @db.Uuid
+  userId            String       @map("user_id") @db.Uuid
+  originStopId      String       @map("origin_stop_id") @db.Uuid
+  destinationStopId String       @map("destination_stop_id") @db.Uuid
+  pricePaid         BigInt       @map("price_paid")
+  status            TicketStatus @default(CONFIRMED)
+  purchasedAt       DateTime     @default(now()) @map("purchased_at") @db.Timestamptz(3)
+  checkedInAt       DateTime?    @map("checked_in_at") @db.Timestamptz(3)
+  boardedAt         DateTime?    @map("boarded_at") @db.Timestamptz(3)
+  completedAt       DateTime?    @map("completed_at") @db.Timestamptz(3)
+  updatedAt         DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  journey            Journey            @relation(fields: [journeyId], references: [id], onDelete: Restrict)
+  user               User               @relation(fields: [userId], references: [id], onDelete: Restrict)
+  originStop         JourneyStop        @relation("TicketOrigin", fields: [originStopId], references: [id], onDelete: Restrict)
+  destinationStop    JourneyStop        @relation("TicketDestination", fields: [destinationStopId], references: [id], onDelete: Restrict)
+  seatReservations   SeatReservation[]
+  passengerJourney   PassengerJourney?
+  boardingEvents     BoardingEvent[]
+
+  @@index([journeyId, status])
+  @@index([userId, purchasedAt])
+  @@map("tickets")
+}
+
+model SeatReservation {
+  id           String                @id @default(uuid()) @db.Uuid
+  ticketId     String                @map("ticket_id") @db.Uuid
+  journeyId    String                @map("journey_id") @db.Uuid
+  seatId       String                @map("seat_id") @db.Uuid
+  fromSequence Int                   @map("from_sequence")
+  toSequence   Int                   @map("to_sequence")
+  status       SeatReservationStatus @default(HELD)
+  reservedUntil DateTime?            @map("reserved_until") @db.Timestamptz(3)
+  createdAt    DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  releasedAt   DateTime?             @map("released_at") @db.Timestamptz(3)
+
+  ticket  Ticket   @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  journey Journey  @relation(fields: [journeyId], references: [id], onDelete: Restrict)
+  seat    BusSeat  @relation(fields: [seatId], references: [id], onDelete: Restrict)
+
+  @@index([journeyId, seatId, status])
+  @@index([ticketId])
+  @@map("seat_reservations")
+}
+
+model PassengerJourney {
+  id                  String                @id @default(uuid()) @db.Uuid
+  ticketId            String                @unique @map("ticket_id") @db.Uuid
+  userId              String                @map("user_id") @db.Uuid
+  journeyId           String                @map("journey_id") @db.Uuid
+  status              PassengerJourneyStatus @default(BOOKED)
+  currentStopSequence Int?                  @map("current_stop_sequence")
+  actualBoardedAt     DateTime?             @map("actual_boarded_at") @db.Timestamptz(3)
+  actualDisembarkedAt DateTime?             @map("actual_disembarked_at") @db.Timestamptz(3)
+  createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+
+  ticket                Ticket                  @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  user                  User                    @relation(fields: [userId], references: [id], onDelete: Restrict)
+  journey               Journey                 @relation(fields: [journeyId], references: [id], onDelete: Restrict)
+  breakRequests         BreakRequest[]
+  breakCreditTransactions BreakCreditTransaction[]
+
+  @@index([journeyId, status])
+  @@index([userId, createdAt])
+  @@map("passenger_journeys")
+}
+
+model BoardingEvent {
+  id        String            @id @default(uuid()) @db.Uuid
+  ticketId  String            @map("ticket_id") @db.Uuid
+  stopId    String            @map("stop_id") @db.Uuid
+  eventType BoardingEventType @map("event_type")
+  metadata  Json              @default("{}")
+  createdAt DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  ticket Ticket     @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  stop   JourneyStop @relation(fields: [stopId], references: [id], onDelete: Restrict)
+
+  @@index([ticketId, createdAt])
+  @@index([stopId, eventType])
+  @@map("boarding_events")
+}
+
+model BreakRequest {
+  id                 String      @id @default(uuid()) @db.Uuid
+  journeyId          String      @map("journey_id") @db.Uuid
+  passengerJourneyId String?     @map("passenger_journey_id") @db.Uuid
+  requestedById      String?     @map("requested_by_id") @db.Uuid
+  breakType          BreakType   @map("break_type")
+  status             BreakStatus @default(REQUESTED)
+  requestedAt        DateTime    @default(now()) @map("requested_at") @db.Timestamptz(3)
+  acceptedAt         DateTime?   @map("accepted_at") @db.Timestamptz(3)
+  startedAt          DateTime?   @map("started_at") @db.Timestamptz(3)
+  deadlineAt         DateTime?   @map("deadline_at") @db.Timestamptz(3)
+  graceDeadlineAt    DateTime?   @map("grace_deadline_at") @db.Timestamptz(3)
+  returnedAt         DateTime?   @map("returned_at") @db.Timestamptz(3)
+  completedAt        DateTime?   @map("completed_at") @db.Timestamptz(3)
+  operatorNotes      String?     @map("operator_notes") @db.Text
+
+  journey          Journey           @relation(fields: [journeyId], references: [id], onDelete: Restrict)
+  passengerJourney PassengerJourney? @relation(fields: [passengerJourneyId], references: [id], onDelete: Restrict)
+  requestedBy      User?             @relation(fields: [requestedById], references: [id], onDelete: SetNull)
+  creditTransactions BreakCreditTransaction[]
+
+  @@index([journeyId, status, requestedAt])
+  @@index([passengerJourneyId, requestedAt])
+  @@map("break_requests")
+}
+
+model BreakCreditTransaction {
+  id                 String                     @id @default(uuid()) @db.Uuid
+  passengerJourneyId String                     @map("passenger_journey_id") @db.Uuid
+  breakRequestId     String?                    @map("break_request_id") @db.Uuid
+  amount             Int
+  transactionType    BreakCreditTransactionType @map("transaction_type")
+  createdAt          DateTime                   @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  passengerJourney PassengerJourney @relation(fields: [passengerJourneyId], references: [id], onDelete: Restrict)
+  breakRequest     BreakRequest?    @relation(fields: [breakRequestId], references: [id], onDelete: SetNull)
+
+  @@index([passengerJourneyId, createdAt])
+  @@map("break_credit_transactions")
+}
+
+model StreamSession {
+  id          String      @id @default(uuid()) @db.Uuid
+  journeyId   String      @map("journey_id") @db.Uuid
+  platform    Platform    @default(YOUTUBE)
+  broadcastId String      @map("broadcast_id") @db.VarChar(255)
+  liveChatId  String?     @map("live_chat_id") @db.VarChar(255)
+  status      StreamStatus @default(SCHEDULED)
+  startedAt   DateTime?   @map("started_at") @db.Timestamptz(3)
+  endedAt     DateTime?   @map("ended_at") @db.Timestamptz(3)
+  createdAt   DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  journey     Journey          @relation(fields: [journeyId], references: [id], onDelete: Restrict)
+  chatLogs    ChatCommandLog[]
+
+  @@unique([platform, broadcastId])
+  @@index([journeyId, status])
+  @@map("stream_sessions")
+}
+
+model ChatCommandLog {
+  id                String   @id @default(uuid()) @db.Uuid
+  streamSessionId   String   @map("stream_session_id") @db.Uuid
+  platformMessageId String   @map("platform_message_id") @db.VarChar(255)
+  platformUserId    String   @map("platform_user_id") @db.VarChar(255)
+  command           String   @db.VarChar(60)
+  response          String?  @db.Text
+  processedAt       DateTime @default(now()) @map("processed_at") @db.Timestamptz(3)
+
+  streamSession StreamSession @relation(fields: [streamSessionId], references: [id], onDelete: Cascade)
+
+  @@unique([streamSessionId, platformMessageId])
+  @@index([streamSessionId, processedAt])
+  @@map("chat_command_logs")
+}
+
+model JourneyEvent {
+  id        String   @id @default(uuid()) @db.Uuid
+  journeyId String   @map("journey_id") @db.Uuid
+  actorId   String?  @map("actor_id") @db.Uuid
+  eventType String   @map("event_type") @db.VarChar(80)
+  payload   Json     @default("{}")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  journey Journey @relation(fields: [journeyId], references: [id], onDelete: Cascade)
+  actor   User?   @relation(fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([journeyId, createdAt])
+  @@index([eventType, createdAt])
+  @@map("journey_events")
+}
+
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  actorId    String?  @map("actor_id") @db.Uuid
+  action     String   @db.VarChar(100)
+  entityType String   @map("entity_type") @db.VarChar(80)
+  entityId   String?  @map("entity_id") @db.Uuid
+  oldValues  Json?    @map("old_values")
+  newValues  Json?    @map("new_values")
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId, createdAt])
+  @@index([actorId, createdAt])
+  @@map("audit_logs")
+}
