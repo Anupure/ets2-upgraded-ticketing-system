@@ -7,11 +7,13 @@ on:
       - feat/booking-lifecycle-hardening
       - fix/lifecycle-concurrency-migrations
       - fix/neon-integration-test-isolation
+      - fix/booked-route-layout-integrity
   pull_request:
     branches:
       - master
       - feat/booking-lifecycle-hardening
       - fix/lifecycle-concurrency-migrations
+      - fix/neon-integration-test-isolation
 
 jobs:
   validate:
