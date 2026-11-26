@@ -81,7 +81,7 @@ export async function markNoShow(db: Db, operatorId: string, ticketId: string) {
       where: { id: operatorId }, select: { id: true, role: true, status: true },
     });
     if (!operator || operator.status !== UserStatus.ACTIVE ||
-        ![UserRole.OPERATOR, UserRole.ADMIN].includes(operator.role)) {
+        (operator.role !== UserRole.OPERATOR && operator.role !== UserRole.ADMIN)) {
       throw new BookingError("BOARDING_NOT_ALLOWED", "Only an active operator or administrator can finalize a no-show.");
     }
 
