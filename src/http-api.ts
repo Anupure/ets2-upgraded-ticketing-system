@@ -140,6 +140,7 @@ export function createApiHandler({ db, getSession }: ApiDependencies) {
 
       const purchaseMatch = path.match(/^\/api\/journeys\/([^/]+)\/tickets$/);
       if (method === "POST" && purchaseMatch) {
+        if (!isUuid(purchaseMatch[1])) return response(400, { error: { code: "INVALID_ID", message: "Invalid journey ID." } });
         if (!session) return response(401, { error: { code: "UNAUTHENTICATED", message: "Sign in to purchase a ticket." } });
         const body = objectBody(request.body);
         if (!body || !hasOnlyKeys(body, ["originStopId", "destinationStopId", "seatNumber"]) ||
