@@ -1,15 +1,7 @@
-import type { PrismaClient } from "@prisma/client";
-import {
-  checkIn,
-  confirmBoarding,
-  disembarkPassenger,
-  getOperatorDashboard,
-  getPassengerManifest,
-  getSeatMap,
-  markNoShow,
-  purchaseTicket,
-  type Db,
-} from "./index.js";
+import type { Db } from "./booking-service.js";
+import { checkIn, confirmBoarding, getSeatMap, purchaseTicket } from "./booking-service.js";
+import { disembarkPassenger, markNoShow } from "./passenger-lifecycle-service.js";
+import { getOperatorDashboard, getPassengerManifest } from "./operator-dashboard-service.js";
 import {
   arriveAtStop,
   closeBooking,
