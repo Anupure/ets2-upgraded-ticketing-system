@@ -78,7 +78,8 @@ function mapError(error: unknown): ApiResponse {
       CHECK_IN_CLOSED: 409,
       ALREADY_CHECKED_IN: 409,
       IDEMPOTENCY_CONFLICT: 409,
-      BOARDING_NOT_ALLOWED: 403,
+      BOARDING_NOT_ALLOWED: 409,
+      OPERATOR_REQUIRED: 403,
     };
     return response(statusByCode[error.code] ?? 400, {
       error: { code: error.code, message: error.message },
