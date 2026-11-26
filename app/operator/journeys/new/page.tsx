@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/src/auth";
-import CreateJourneyForm from "../create-journey-form";
+import CreateJourneyForm from "../../create-journey-form";
 
 export const dynamic = "force-dynamic";
 
