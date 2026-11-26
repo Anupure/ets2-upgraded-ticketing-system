@@ -164,7 +164,7 @@ integration("booked route and bus layout integrity", () => {
           name: `Seat Race Journey ${suffix}`,
           busLayoutId: layout.id,
           createdBy: user.id,
-          status: JourneyStatus.BOOKING_OPEN,
+          status: JourneyStatus.DRAFT,
           stops: {
             create: [
               { sequence: 1, name: "Origin" },
@@ -207,6 +207,7 @@ integration("booked route and bus layout integrity", () => {
             seatId: layout.seats[0]!.id,
             fromSequence: 1,
             toSequence: 2,
+            reservedUntil: new Date(Date.now() + 60_000),
           },
         });
         return ticket;
