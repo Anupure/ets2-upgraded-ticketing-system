@@ -14,7 +14,8 @@ This repository currently contains a Prisma 6 / TypeScript service package, not 
 - `closeBooking(db, operatorId, journeyId)` — close ticket sales and lock the journey before departure.
 - `arriveAtStop(db, operatorId, journeyId, stopId)` — mark the first or next stop arrived.
 - `openBoardingAtStop(db, operatorId, journeyId, stopId)` — open check-in and operator boarding at the current stop.
-- `departStop(db, operatorId, journeyId, stopId)` — close boarding and depart, or complete at the final stop.
+- `departStop(db, operatorId, journeyId, stopId)` — close boarding and depart to the next stop.
+- `completeJourneyAtFinalStop(db, operatorId, journeyId)` — complete the journey after final-stop arrival and resolution of all passenger tickets.
 - `getOperatorDashboard(db, operatorId, journeyId)` — operator-only journey, bus, stop and ticket-status overview.
 - `getPassengerManifest(db, operatorId, journeyId, stopId)` — operator-only stop manifest with passenger identity, ticket state and seat assignment.
 
@@ -83,7 +84,8 @@ Require an active `OPERATOR` or `ADMIN` session and call `getPassengerManifest`.
 - `POST /api/operator/journeys/:journeyId/close-booking` calls `closeBooking`. It transitions `BOOKING_OPEN` to `PAUSED` with no current stop, which is the explicit pre-departure state; ticket purchases then fail because the journey is no longer `BOOKING_OPEN`.
 - `POST /api/operator/journeys/:journeyId/stops/:stopId/arrive` calls `arriveAtStop`. The first arrival is allowed only from the booking-closed pre-departure state; subsequent arrivals must be the next stop after departure.
 - `POST /api/operator/journeys/:journeyId/stops/:stopId/open-boarding` calls `openBoardingAtStop`. This opens passenger check-in and physical boarding for the current arrived stop.
-- `POST /api/operator/journeys/:journeyId/stops/:stopId/depart` calls `departStop`. This closes the boarding window; the journey returns to `IN_PROGRESS`, or becomes `COMPLETED` at the final stop.
+- `POST /api/operator/journeys/:journeyId/stops/:stopId/depart` calls `departStop`. This closes the boarding window and moves the journey to `IN_PROGRESS` for the next stop.
+- `POST /api/operator/journeys/:journeyId/complete` calls `completeJourneyAtFinalStop` after the final stop has been marked arrived and all tickets have been completed, marked no-show, or otherwise moved to a terminal state. The final destination does not need a boarding window or a departure action.
 
 Every operation requires an active `OPERATOR` or `ADMIN` session, locks the journey row, and records a journey event. Passenger check-in and operator-confirmed boarding also acquire the same journey row lock, serializing them against stop departure and preventing a passenger from boarding concurrently with departure. The server must derive `operatorId` from the authenticated session.
 
@@ -95,7 +97,7 @@ Return `balance` as a decimal string because Prisma `BigInt` cannot be serialize
 
 - The PostgreSQL exclusion constraint `seat_reservations_no_overlap` is required for concurrent segment allocation.
 - The partial unique index currently permits one active ticket per passenger per journey. That is an MVP rule, not an unavoidable product rule.
-- Operator boarding, destination disembarkation, no-show finalization, seat release and stop arrival/boarding/departure controls are implemented as transactional services. Operator dashboard overview and stop-wise manifest read services are implemented. HTTP routes, frontend and realtime delivery are still not implemented.
+- Operator boarding, destination disembarkation, no-show finalization, seat release, stop arrival/boarding/departure controls and final journey completion are implemented as transactional services. Operator dashboard overview and stop-wise manifest read services are implemented. HTTP routes, frontend and realtime delivery are still not implemented.
 - The booking API routes, Auth.js configuration, Next.js UI and realtime transport are not present in the current repo; do not pretend they are already implemented.
 - Publish realtime events only after a transaction commits. Prefer a transactional outbox before introducing Socket.IO broadcasts.
 - Retry PostgreSQL serialization failures (SQLSTATE `40001`) with a small bounded retry while preserving the same idempotency key.
