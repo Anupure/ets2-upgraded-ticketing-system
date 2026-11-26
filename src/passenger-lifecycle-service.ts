@@ -17,6 +17,11 @@ export async function disembarkPassenger(db: Db, operatorId: string, ticketId: s
       throw new BookingError("BOARDING_NOT_ALLOWED", "Only an active operator or administrator can confirm disembarkation.");
     }
 
+    const ticketRef = await tx.ticket.findUnique({ where: { id: ticketId }, select: { journeyId: true } });
+    if (!ticketRef) throw new BookingError("TICKET_NOT_FOUND", "Ticket not found.");
+    await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id FROM journeys WHERE id = ${ticketRef.journeyId}::uuid FOR UPDATE
+    `;
     const ticket = await tx.ticket.findUnique({
       where: { id: ticketId },
       include: { journey: true, destinationStop: true, passengerJourney: true },
@@ -27,7 +32,7 @@ export async function disembarkPassenger(db: Db, operatorId: string, ticketId: s
         ![JourneyStatus.IN_PROGRESS, JourneyStatus.PAUSED].includes(ticket.journey.status)) {
       throw new BookingError("BOARDING_NOT_ALLOWED", "Only an onboard passenger can disembark during an active journey.");
     }
-    if (ticket.journey.currentStopSequence !== ticket.destinationStop.sequence) {
+    if (ticket.destinationStop.status !== "ARRIVED" || ticket.journey.currentStopSequence !== ticket.destinationStop.sequence) {
       throw new BookingError("BOARDING_NOT_ALLOWED", "The coach has not arrived at this passenger's destination stop.");
     }
 
@@ -80,6 +85,11 @@ export async function markNoShow(db: Db, operatorId: string, ticketId: string) {
       throw new BookingError("BOARDING_NOT_ALLOWED", "Only an active operator or administrator can finalize a no-show.");
     }
 
+    const ticketRef = await tx.ticket.findUnique({ where: { id: ticketId }, select: { journeyId: true } });
+    if (!ticketRef) throw new BookingError("TICKET_NOT_FOUND", "Ticket not found.");
+    await tx.$queryRaw<Array<{ id: string }>>`
+      SELECT id FROM journeys WHERE id = ${ticketRef.journeyId}::uuid FOR UPDATE
+    `;
     const ticket = await tx.ticket.findUnique({
       where: { id: ticketId },
       include: { journey: true, originStop: true },
@@ -90,7 +100,7 @@ export async function markNoShow(db: Db, operatorId: string, ticketId: string) {
         ![JourneyStatus.IN_PROGRESS, JourneyStatus.PAUSED].includes(ticket.journey.status)) {
       throw new BookingError("BOARDING_NOT_ALLOWED", "Only an unboarded ticket can be finalized as a no-show after departure.");
     }
-    if (ticket.journey.currentStopSequence !== ticket.originStop.sequence) {
+    if (ticket.originStop.status !== "DEPARTED" || ticket.journey.currentStopSequence !== ticket.originStop.sequence) {
       throw new BookingError("BOARDING_NOT_ALLOWED", "No-show can only be finalized at the stop where this ticket's boarding was due.");
     }
 
