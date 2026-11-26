@@ -286,7 +286,7 @@ integration("booked route and bus layout integrity", () => {
       let lockWaitError: unknown;
       try {
         // Observe the ungranted exclusive advisory lock rather than relying on a sleep.
-        await waitForJourneyRowLock();
+        await waitForJourneyAdvisoryLock();
       } catch (error) {
         lockWaitError = error;
       } finally {
@@ -350,7 +350,7 @@ integration("booked route and bus layout integrity", () => {
         (error: unknown) => ({ fulfilled: false as const, error }),
       );
       let lockWaitError: unknown;
-      try { await waitForJourneyRowLock(); }
+      try { await waitForJourneyAdvisoryLock(); }
       catch (error) { lockWaitError = error; }
       finally { releaseBooking(); }
       await expect(booking).resolves.toMatchObject({ journeyId: journey.id });
