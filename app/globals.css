@@ -96,3 +96,20 @@ button{font:inherit}
 .manifest-actions .button{min-height:40px;padding:0 12px;font-size:11px}
 .manifest-terminal{font-size:10px;color:var(--muted)}
 @media(max-width:760px){.manifest-toolbar{align-items:stretch;flex-direction:column}.manifest-row{grid-template-columns:1fr;gap:12px}.manifest-actions{justify-content:flex-start}.manifest-actions .button{width:100%}}
+
+
+/* Operator control room */
+.operator-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:24px 0 30px}
+.stat-card{display:grid;align-content:space-between;gap:12px;min-width:0;padding:18px 20px;border:1px solid var(--line);border-radius:12px;background:var(--panel)}
+.stat-card span{font-size:12px;line-height:1.45;color:var(--muted)}
+.stat-card strong{font-size:clamp(25px,3vw,34px);line-height:1;font-weight:800;font-variant-numeric:tabular-nums}
+.stat-card strong small{font-size:14px;color:var(--muted);font-weight:600}
+.operator-live-note{margin:-16px 0 28px;color:var(--muted);font-size:11px}
+.journey-controls{margin:28px 0 34px}
+.journey-controls>h2{font-size:21px;margin:0 0 16px}
+.operator-actions{display:flex;align-items:center;gap:12px 14px;flex-wrap:wrap;margin:0 0 14px}
+.operator-actions .button{flex:0 0 auto;min-width:150px}
+.journey-controls>.muted{margin:12px 0 0}
+.operator-section>h2{margin:30px 0 14px;font-size:22px}
+@media(max-width:760px){.operator-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.stat-card{padding:15px}.operator-actions{align-items:stretch}.operator-actions .button{flex:1 1 100%;width:100%}}
+@media(max-width:380px){.operator-stats{grid-template-columns:1fr 1fr}.stat-card span{font-size:11px}}
