@@ -9,6 +9,8 @@ This repository currently contains a Prisma 6 / TypeScript service package, not 
 - `checkIn(db, userId, ticketId)` — passenger self-check-in.
 - `confirmBoarding(db, operatorId, ticketId)` — operator-confirmed physical boarding.
 - `getSeatMap(db, journeyId, fromSequence?, toSequence?)` — safe seat projection.
+- `disembarkPassenger(db, operatorId, ticketId)` — complete an onboard passenger at their destination and release the seat.
+- `markNoShow(db, operatorId, ticketId)` — finalize an unboarded passenger after the origin stop has departed and release the seat.
 
 ## Required HTTP boundary
 
@@ -54,6 +56,14 @@ Authenticate, derive `userId` from the session, and call `checkIn(db, userId, ti
 
 Require an active `OPERATOR` or `ADMIN` session, then call `confirmBoarding(db, operatorId, ticketId)`. This transitions ticket to `BOARDED`, passenger journey to `ONBOARD`, and reservation to `OCCUPIED` in one transaction. The service also checks the role; keep the route-level check for clear HTTP 403 responses.
 
+### `POST /api/operator/tickets/:ticketId/disembark`
+
+Require an active `OPERATOR` or `ADMIN` session and call `disembarkPassenger`. The coach must be at the booked destination and that stop must be marked `ARRIVED`. The transaction completes the ticket and passenger journey, releases the occupied seat, and records the disembarkation event.
+
+### `POST /api/operator/tickets/:ticketId/no-show`
+
+Require an active `OPERATOR` or `ADMIN` session and call `markNoShow`. The coach must have departed the booked origin (`JourneyStop.status = DEPARTED`) and still be at that stop in the journey sequence. The operation handles both `CONFIRMED` and `CHECKED_IN` tickets that were not physically boarded, releases the confirmed seat, and records a no-show event. Do not infer absence from elapsed time alone.
+
 ### `GET /api/me/wallet`
 
 Return `balance` as a decimal string because Prisma `BigInt` cannot be serialized directly to JSON. Do not serialize the raw Prisma Wallet object.
@@ -62,7 +72,7 @@ Return `balance` as a decimal string because Prisma `BigInt` cannot be serialize
 
 - The PostgreSQL exclusion constraint `seat_reservations_no_overlap` is required for concurrent segment allocation.
 - The partial unique index currently permits one active ticket per passenger per journey. That is an MVP rule, not an unavoidable product rule.
-- `confirmBoarding` is implemented; disembarkation, no-show finalization, seat release and journey stop controls still need separate operator services.
+- Operator boarding, destination disembarkation, no-show finalization and seat release are implemented as separate transactional services. Journey stop advancement/control still needs an operator service.
 - The booking API routes, Auth.js configuration, Next.js UI and realtime transport are not present in the current repo; do not pretend they are already implemented.
 - Publish realtime events only after a transaction commits. Prefer a transactional outbox before introducing Socket.IO broadcasts.
 - Retry PostgreSQL serialization failures (SQLSTATE `40001`) with a small bounded retry while preserving the same idempotency key.
@@ -80,3 +90,7 @@ Return `balance` as a decimal string because Prisma `BigInt` cannot be serialize
 9. Boarding atomically changes ticket, passenger and seat reservation states.
 10. Public seat-map payload contains no email, ticket ID, wallet balance, YouTube identity or private credentials.
 11. A ticket that is only `CONFIRMED` or `CHECKED_IN` is not shown as physically occupying a seat.
+12. Disembarkation is accepted only at the booked destination when the stop is `ARRIVED`; ticket, passenger and seat state change atomically.
+13. No-show is accepted only after the booked origin is `DEPARTED`; both `CONFIRMED` and `CHECKED_IN` unboarded tickets are handled.
+14. Repeating either lifecycle action returns the terminal state without creating duplicate events.
+15. A released seat can be booked for a later non-overlapping route segment.
