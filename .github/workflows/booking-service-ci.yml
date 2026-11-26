@@ -6,10 +6,12 @@ on:
       - master
       - feat/booking-lifecycle-hardening
       - fix/lifecycle-concurrency-migrations
+      - fix/neon-integration-test-isolation
   pull_request:
     branches:
       - master
       - feat/booking-lifecycle-hardening
+      - fix/lifecycle-concurrency-migrations
 
 jobs:
   validate:
