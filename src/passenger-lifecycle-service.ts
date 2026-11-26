@@ -13,7 +13,7 @@ export async function disembarkPassenger(db: Db, operatorId: string, ticketId: s
       where: { id: operatorId }, select: { id: true, role: true, status: true },
     });
     if (!operator || operator.status !== UserStatus.ACTIVE ||
-        ![UserRole.OPERATOR, UserRole.ADMIN].includes(operator.role)) {
+        operator.role !== UserRole.OPERATOR && operator.role !== UserRole.ADMIN) {
       throw new BookingError("BOARDING_NOT_ALLOWED", "Only an active operator or administrator can confirm disembarkation.");
     }
 
@@ -29,7 +29,7 @@ export async function disembarkPassenger(db: Db, operatorId: string, ticketId: s
     if (!ticket) throw new BookingError("TICKET_NOT_FOUND", "Ticket not found.");
     if (ticket.status === TicketStatus.COMPLETED) return { ticket, alreadyDisembarked: true };
     if (ticket.status !== TicketStatus.BOARDED ||
-        ![JourneyStatus.IN_PROGRESS, JourneyStatus.PAUSED, JourneyStatus.BOARDING].includes(ticket.journey.status)) {
+        (ticket.journey.status !== JourneyStatus.IN_PROGRESS && ticket.journey.status !== JourneyStatus.PAUSED && ticket.journey.status !== JourneyStatus.BOARDING)) {
       throw new BookingError("BOARDING_NOT_ALLOWED", "Only an onboard passenger can disembark during an active journey.");
     }
     if (!["ARRIVED", "BOARDING_OPEN"].includes(ticket.destinationStop.status) || ticket.journey.currentStopSequence !== ticket.destinationStop.sequence) {
@@ -96,8 +96,8 @@ export async function markNoShow(db: Db, operatorId: string, ticketId: string) {
     });
     if (!ticket) throw new BookingError("TICKET_NOT_FOUND", "Ticket not found.");
     if (ticket.status === TicketStatus.NO_SHOW) return { ticket, alreadyNoShow: true };
-    if (![TicketStatus.CONFIRMED, TicketStatus.CHECKED_IN].includes(ticket.status) ||
-        ![JourneyStatus.IN_PROGRESS, JourneyStatus.PAUSED].includes(ticket.journey.status)) {
+    if ((ticket.status !== TicketStatus.CONFIRMED && ticket.status !== TicketStatus.CHECKED_IN) ||
+        (ticket.journey.status !== JourneyStatus.IN_PROGRESS && ticket.journey.status !== JourneyStatus.PAUSED)) {
       throw new BookingError("BOARDING_NOT_ALLOWED", "Only an unboarded ticket can be finalized as a no-show after departure.");
     }
     if (ticket.originStop.status !== "DEPARTED" || ticket.journey.currentStopSequence !== ticket.originStop.sequence) {
