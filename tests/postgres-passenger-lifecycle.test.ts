@@ -30,6 +30,9 @@ integration("PostgreSQL passenger lifecycle", () => {
     const noShowPassenger = await prisma.user.create({ data: {
       username: `p3_${suffix}`, displayName: "No Show Passenger",
     } });
+    const overlappingPassenger = await prisma.user.create({ data: {
+      username: `p4_${suffix}`, displayName: "Overlapping Passenger",
+    } });
     const layout = await prisma.busLayout.create({ data: {
       name: `CI Coach ${suffix}`, capacity: 2,
       seats: { create: [
@@ -50,7 +53,7 @@ integration("PostgreSQL passenger lifecycle", () => {
       where: { journeyId: journey.id }, orderBy: { sequence: "asc" },
     });
 
-    for (const user of [firstPassenger, secondPassenger, noShowPassenger]) {
+    for (const user of [firstPassenger, secondPassenger, noShowPassenger, overlappingPassenger]) {
       await provisionWallet(prisma, user.id, 1_000n);
     }
 
@@ -70,6 +73,11 @@ integration("PostgreSQL passenger lifecycle", () => {
     expect(first.replayed).toBe(false);
     expect(second.replayed).toBe(false);
     expect(noShow.replayed).toBe(false);
+    await expect(purchaseTicket(prisma, {
+      userId: overlappingPassenger.id, journeyId: journey.id, originStopId: origin.id,
+      destinationStopId: middle.id, seatNumber: "1A", idempotencyKey: `overlap-${suffix}`, expectedPrice: 100n,
+    })).rejects.toMatchObject({ code: "SEAT_UNAVAILABLE" });
+    expect((await prisma.wallet.findUniqueOrThrow({ where: { userId: overlappingPassenger.id } })).balance).toBe(1_000n);
     expect((await prisma.wallet.findUniqueOrThrow({ where: { userId: firstPassenger.id } })).balance).toBe(900n);
 
     await closeBooking(prisma, operator.id, journey.id);
