@@ -12,8 +12,23 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ets2_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ets2_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ets2_ci?schema=public
+      PGPASSWORD: postgres
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -32,8 +47,14 @@ jobs:
       - name: Validate Prisma schema
         run: npx prisma validate --schema roguerpm-db/prisma/schema.prisma
 
+      - name: Push Prisma schema to PostgreSQL
+        run: npx prisma db push --schema roguerpm-db/prisma/schema.prisma
+
+      - name: Apply PostgreSQL integrity constraints
+        run: psql -h localhost -U postgres -d ets2_ci -v ON_ERROR_STOP=1 -f roguerpm-db/prisma/sql/postgres_integrity_constraints.sql
+
       - name: TypeScript typecheck
         run: npm run typecheck
 
-      - name: Unit tests
+      - name: Unit and PostgreSQL integration tests
         run: npm test
