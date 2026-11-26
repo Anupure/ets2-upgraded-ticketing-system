@@ -2,11 +2,12 @@ import {
   Prisma, PrismaClient, JourneyStatus, TicketStatus, StopStatus, UserRole, UserStatus,
 } from "@prisma/client";
 import { BookingError } from "./errors.js";
-import { withSerializableRetry } from "./transaction.js";
+import { lockJourneyMutationShared, withSerializableRetry } from "./transaction.js";
 
 type Db = PrismaClient;
 
 async function lockJourney(tx: Prisma.TransactionClient, journeyId: string) {
+  await lockJourneyMutationShared(tx);
   const rows = await tx.$queryRaw<Array<{ id: string }>>`
     SELECT id FROM journeys WHERE id = ${journeyId}::uuid FOR UPDATE
   `;

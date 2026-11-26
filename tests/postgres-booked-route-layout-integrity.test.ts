@@ -5,18 +5,63 @@ import { describe, expect, it } from "vitest";
 const prisma = new PrismaClient();
 const integration = process.env.DATABASE_URL ? describe : describe.skip;
 
-async function waitForJourneyExclusiveLock(timeoutMs = 5000): Promise<void> {
+async function waitForJourneyAdvisoryLock(timeoutMs = 5000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const rows = await prisma.$queryRawUnsafe(
-      "SELECT EXISTS (SELECT 1 FROM pg_locks WHERE locktype = 'relation' AND relation = 'journeys'::regclass AND mode = 'ExclusiveLock' AND NOT granted) AS waiting"
+      "SELECT EXISTS (SELECT 1 FROM pg_locks l JOIN pg_stat_activity a ON a.pid = l.pid WHERE l.locktype = 'advisory' AND l.mode = 'ExclusiveLock' AND NOT l.granted AND a.query ILIKE '%UPDATE%') AS waiting"
     ) as Array<{ waiting: boolean }>;
     if (rows[0]?.waiting) return;
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
-  throw new Error("Structural edit did not wait for the journey table lock");
+  throw new Error("Structural edit did not wait for the journey advisory lock");
 }
 integration("booked route and bus layout integrity", () => {
+  it("allows concurrent journey creation with nested stops", async () => {
+    const suffix = randomUUID().replaceAll("-", "").slice(0, 12);
+    const userIds: string[] = [];
+    const layoutIds: string[] = [];
+    const journeyIds: string[] = [];
+
+    try {
+      const fixtures = await Promise.all([1, 2].map(async (index) => {
+        const user = await prisma.user.create({
+          data: { username: `parallel_create_${suffix}_${index}`, displayName: "Parallel Create Test" },
+        });
+        userIds.push(user.id);
+        const layout = await prisma.busLayout.create({
+          data: {
+            name: `Parallel Create Coach ${suffix} ${index}`,
+            capacity: 1,
+            seats: { create: [{ seatNumber: "1A", rowNumber: 1, columnNumber: 1 }] },
+          },
+        });
+        layoutIds.push(layout.id);
+        return { user, layout };
+      }));
+
+      const journeys = await Promise.all(fixtures.map(({ user, layout }, index) =>
+        prisma.journey.create({
+          data: {
+            name: `Parallel Create Journey ${suffix} ${index}`,
+            busLayoutId: layout.id,
+            createdBy: user.id,
+            status: JourneyStatus.DRAFT,
+            stops: { create: [{ sequence: 1, name: "Origin" }, { sequence: 2, name: "Destination" }] },
+          },
+        }).then((journey) => {
+          journeyIds.push(journey.id);
+          return journey;
+        })
+      ));
+      expect(journeys).toHaveLength(2);
+    } finally {
+      if (journeyIds.length) await prisma.journey.deleteMany({ where: { id: { in: journeyIds } } });
+      if (layoutIds.length) await prisma.busLayout.deleteMany({ where: { id: { in: layoutIds } } });
+      if (userIds.length) await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+    }
+  });
+
   it("freezes structural edits after ticketing but permits stop metadata corrections", async () => {
     const suffix = randomUUID().replaceAll("-", "").slice(0, 12);
     let userId: string | undefined;
@@ -197,6 +242,7 @@ integration("booked route and bus layout integrity", () => {
       const bookingMayContinue = new Promise<void>((resolve) => { releaseBooking = resolve; });
 
       const booking = prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT acquire_journey_mutation_shared_lock()`;
         await tx.$queryRaw`SELECT id FROM journeys WHERE id = ${journey.id}::uuid FOR UPDATE`;
         signalJourneyLocked();
         await bookingMayContinue;
@@ -239,8 +285,8 @@ integration("booked route and bus layout integrity", () => {
 
       let lockWaitError: unknown;
       try {
-        // Observe the ungranted EXCLUSIVE relation lock rather than relying on a sleep.
-        await waitForJourneyExclusiveLock();
+        // Observe the ungranted exclusive advisory lock rather than relying on a sleep.
+        await waitForJourneyAdvisoryLock();
       } catch (error) {
         lockWaitError = error;
       } finally {
@@ -290,6 +336,7 @@ integration("booked route and bus layout integrity", () => {
       const journeyLocked = new Promise<void>((resolve) => { signalJourneyLocked = resolve; });
       const bookingMayContinue = new Promise<void>((resolve) => { releaseBooking = resolve; });
       const booking = prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT acquire_journey_mutation_shared_lock()`;
         await tx.$queryRawUnsafe("SELECT id FROM journeys WHERE id = $1::uuid FOR UPDATE", journey.id);
         signalJourneyLocked();
         await bookingMayContinue;
@@ -303,7 +350,7 @@ integration("booked route and bus layout integrity", () => {
         (error: unknown) => ({ fulfilled: false as const, error }),
       );
       let lockWaitError: unknown;
-      try { await waitForJourneyExclusiveLock(); }
+      try { await waitForJourneyAdvisoryLock(); }
       catch (error) { lockWaitError = error; }
       finally { releaseBooking(); }
       await expect(booking).resolves.toMatchObject({ journeyId: journey.id });

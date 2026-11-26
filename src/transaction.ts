@@ -1,5 +1,10 @@
 import { Prisma, PrismaClient } from "@prisma/client";
 
+// The database function returns a boolean so Prisma never has to decode PostgreSQL's void type.
+export async function lockJourneyMutationShared(tx: Prisma.TransactionClient): Promise<void> {
+  await tx.$queryRaw`SELECT acquire_journey_mutation_shared_lock() AS locked`;
+}
+
 /** Retry only PostgreSQL serialization conflicts; never replay domain failures. */
 export async function withSerializableRetry<T>(
   db: PrismaClient,
