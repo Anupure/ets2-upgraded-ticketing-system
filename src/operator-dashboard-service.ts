@@ -5,6 +5,35 @@ import {
 import { BookingError } from "./errors.js";
 
 type Db = PrismaClient;
+
+export type SeatReservationForAvailability = { seatId: string; fromSequence: number; toSequence: number };
+
+/** Returns the minimum free-seat count across the route before departure,
+ * or the free-seat count on the current leg once the journey has started.
+ * Reservations are segment-based, so the same seat can be reused on adjacent legs.
+ */
+export function calculateSeatAvailability(
+  stops: Array<{ sequence: number }>,
+  reservations: SeatReservationForAvailability[],
+  bookableSeats: number,
+  currentStopSequence: number | null,
+) {
+  const legStarts = currentStopSequence === null
+    ? stops.slice(0, -1).map((stop) => stop.sequence)
+    : [currentStopSequence];
+  const reservedByLeg = legStarts.map((fromSequence) => new Set(
+    reservations
+      .filter((reservation) => reservation.fromSequence <= fromSequence && reservation.toSequence > fromSequence)
+      .map((reservation) => reservation.seatId),
+  ).size);
+  const reservedSeats = reservedByLeg.length ? Math.max(...reservedByLeg) : 0;
+  return {
+    reservedSeats,
+    availableSeats: Math.max(0, bookableSeats - reservedSeats),
+    scope: currentStopSequence === null ? "tightest-route-leg" as const : "current-leg" as const,
+  };
+}
+
 const visibleTicketStatuses: TicketStatus[] = [
   TicketStatus.CONFIRMED, TicketStatus.CHECKED_IN, TicketStatus.BOARDED,
   TicketStatus.COMPLETED, TicketStatus.NO_SHOW, TicketStatus.LEFT_BEHIND,
@@ -62,11 +91,16 @@ export async function getOperatorDashboard(db: Db, operatorId: string, journeyId
   for (const ticket of tickets) counts[ticket.status] += 1;
 
   const currentSequence = journey.currentStopSequence;
-  const currentLegReservations = currentSequence === null ? [] : tickets.flatMap((ticket) =>
-    ticket.seatReservations.filter((reservation) =>
-      reservation.fromSequence <= currentSequence && reservation.toSequence > currentSequence &&
-      (reservation.status === SeatReservationStatus.CONFIRMED || reservation.status === SeatReservationStatus.OCCUPIED || reservation.status === SeatReservationStatus.HELD),
-    ),
+  const activeReservations = tickets.flatMap((ticket) => ticket.seatReservations);
+  const bookableSeats = journey.busLayout.seats.filter((seat) => seat.isBookable).length;
+  const seatAvailability = calculateSeatAvailability(
+    journey.stops,
+    activeReservations,
+    bookableSeats,
+    currentSequence,
+  );
+  const currentLegReservations = currentSequence === null ? [] : activeReservations.filter((reservation) =>
+    reservation.fromSequence <= currentSequence && reservation.toSequence > currentSequence,
   );
 
   return {
@@ -95,8 +129,11 @@ export async function getOperatorDashboard(db: Db, operatorId: string, journeyId
     passengerCounts: {
       totalTickets: tickets.length,
       byStatus: counts,
-      currentLegReservedSeats: currentLegReservations.filter((r) => r.status !== SeatReservationStatus.HELD).length,
-      currentLegOccupiedSeats: currentLegReservations.filter((r) => r.status === SeatReservationStatus.OCCUPIED).length,
+      currentLegReservedSeats: new Set(currentLegReservations.map((reservation) => reservation.seatId)).size,
+      currentLegOccupiedSeats: new Set(currentLegReservations.filter((reservation) => reservation.status === SeatReservationStatus.OCCUPIED).map((reservation) => reservation.seatId)).size,
+      availableSeats: seatAvailability.availableSeats,
+      reservedSeatsOnRelevantLeg: seatAvailability.reservedSeats,
+      seatAvailabilityScope: seatAvailability.scope,
     },
   };
 }
