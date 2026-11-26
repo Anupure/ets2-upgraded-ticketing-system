@@ -29,7 +29,7 @@ export async function disembarkPassenger(db: Db, operatorId: string, ticketId: s
     if (!ticket) throw new BookingError("TICKET_NOT_FOUND", "Ticket not found.");
     if (ticket.status === TicketStatus.COMPLETED) return { ticket, alreadyDisembarked: true };
     if (ticket.status !== TicketStatus.BOARDED ||
-        ![JourneyStatus.IN_PROGRESS, JourneyStatus.PAUSED].includes(ticket.journey.status)) {
+        ![JourneyStatus.IN_PROGRESS, JourneyStatus.PAUSED, JourneyStatus.BOARDING].includes(ticket.journey.status)) {
       throw new BookingError("BOARDING_NOT_ALLOWED", "Only an onboard passenger can disembark during an active journey.");
     }
     if (!["ARRIVED", "BOARDING_OPEN"].includes(ticket.destinationStop.status) || ticket.journey.currentStopSequence !== ticket.destinationStop.sequence) {
