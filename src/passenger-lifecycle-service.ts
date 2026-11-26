@@ -15,7 +15,7 @@ export async function disembarkPassenger(db: Db, operatorId: string, ticketId: s
     });
     if (!operator || operator.status !== UserStatus.ACTIVE ||
         operator.role !== UserRole.OPERATOR && operator.role !== UserRole.ADMIN) {
-      throw new BookingError("BOARDING_NOT_ALLOWED", "Only an active operator or administrator can confirm disembarkation.");
+      throw new BookingError("OPERATOR_REQUIRED", "Only an active operator or administrator can confirm disembarkation.");
     }
 
     const ticketRef = await tx.ticket.findUnique({ where: { id: ticketId }, select: { journeyId: true } });
@@ -87,7 +87,7 @@ export async function markNoShow(db: Db, operatorId: string, ticketId: string) {
     });
     if (!operator || operator.status !== UserStatus.ACTIVE ||
         (operator.role !== UserRole.OPERATOR && operator.role !== UserRole.ADMIN)) {
-      throw new BookingError("BOARDING_NOT_ALLOWED", "Only an active operator or administrator can finalize a no-show.");
+      throw new BookingError("OPERATOR_REQUIRED", "Only an active operator or administrator can finalize a no-show.");
     }
 
     const ticketRef = await tx.ticket.findUnique({ where: { id: ticketId }, select: { journeyId: true } });
