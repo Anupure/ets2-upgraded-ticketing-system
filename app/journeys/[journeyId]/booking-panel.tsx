@@ -5,8 +5,8 @@ import { useEffect, useRef, useState } from "react";
 type Stop = { id: string; sequence: number; name: string };
 type Seat = { seatNumber: string; row: number; column: number; seatType: string; bookable: boolean; state: string; passenger: { displayName: string; avatarUrl: string | null } | null };
 
-export function BookingPanel({ journeyId, stops, initialSeats, signedIn }: {
-  journeyId: string; stops: Stop[]; initialSeats: Seat[]; signedIn: boolean;
+export function BookingPanel({ journeyId, stops, initialSeats, signedIn, canBook }: {
+  journeyId: string; stops: Stop[]; initialSeats: Seat[]; signedIn: boolean; canBook: boolean; canBook: boolean;
 }) {
   const [originId, setOriginId] = useState(stops[0]?.id ?? "");
   const [destinationId, setDestinationId] = useState(stops[1]?.id ?? "");
@@ -50,6 +50,7 @@ export function BookingPanel({ journeyId, stops, initialSeats, signedIn }: {
   }
 
   async function purchase() {
+    if (!canBook) return;
     if (!signedIn) { window.location.href = "/sign-in"; return; }
     if (!origin || !destination || !selectedSeat) return;
     setSubmitting(true);
@@ -92,9 +93,10 @@ export function BookingPanel({ journeyId, stops, initialSeats, signedIn }: {
       )}
       <div className="booking-submit">
         <p>{selectedSeat ? `Seat ${selectedSeat} selected` : "Select an available seat"}</p>
-        <button className="button button-primary" type="button" disabled={!selectedSeat || !origin || !destination || submitting || loadingSeats} onClick={purchase}>{submitting ? "Booking…" : signedIn ? "Confirm booking" : "Sign in to book"}</button>
+        <button className="button button-primary" type="button" disabled={!canBook || !selectedSeat || !origin || !destination || submitting || loadingSeats} onClick={purchase}>{!canBook ? "Ticketing closed" : submitting ? "Booking…" : signedIn ? "Confirm booking" : "Sign in to book"}</button>
       </div>
       {message ? <p className="booking-message" role="status">{message}</p> : null}
+      {!canBook ? <p className="booking-disclaimer">Ticket purchases are available only while the operator has ticketing open.</p> : null}
       <p className="booking-disclaimer">A booking reserves your seat. Physical boarding is confirmed separately by the operator.</p>
     </section>
   );
