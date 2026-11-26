@@ -49,9 +49,11 @@ integration("booked route and bus layout integrity", () => {
             status: JourneyStatus.DRAFT,
             stops: { create: [{ sequence: 1, name: "Origin" }, { sequence: 2, name: "Destination" }] },
           },
+        }).then((journey) => {
+          journeyIds.push(journey.id);
+          return journey;
         })
       ));
-      journeyIds.push(...journeys.map((journey) => journey.id));
       expect(journeys).toHaveLength(2);
     } finally {
       if (journeyIds.length) await prisma.journey.deleteMany({ where: { id: { in: journeyIds } } });
