@@ -280,6 +280,38 @@ export function createApiHandler({ db, getSession }: ApiDependencies) {
         return response(200, { manifest: await getPassengerManifest(db, session.userId, manifestMatch[1], manifestMatch[2]) });
       }
 
+      const openBookingMatch = path.match(/^\/api\/operator\/journeys\/([^/]+)\/open-booking$/);
+      if (method === "POST" && openBookingMatch) {
+        if (!session) return response(401, { error: { code: "UNAUTHENTICATED", message: "Sign in to open ticket sales." } });
+        if (!isUuid(openBookingMatch[1])) return response(400, { error: { code: "INVALID_ID", message: "Invalid journey ID." } });
+        const journey = await db.$transaction(async (tx) => {
+          const actor = await tx.user.findUnique({ where: { id: session.userId }, select: { role: true, status: true } });
+          if (!actor || actor.status !== "ACTIVE" || (actor.role !== "OPERATOR" && actor.role !== "ADMIN")) {
+            throw new BookingError("OPERATOR_REQUIRED", "Only active operators and administrators can open ticket sales.");
+          }
+          const current = await tx.journey.findUnique({
+            where: { id: openBookingMatch[1]! },
+            include: { stops: { orderBy: { sequence: "asc" } }, busLayout: { include: { _count: { select: { seats: true } } } } },
+          });
+          if (!current) throw new BookingError("JOURNEY_NOT_OPEN", "Journey not found.");
+          if (current.status !== "DRAFT" && current.status !== "SCHEDULED") {
+            throw new BookingError("BOARDING_NOT_ALLOWED", "Only a draft or scheduled journey can open ticket sales.");
+          }
+          if (current.stops.length < 2 || current.busLayout._count.seats !== 42) {
+            throw new BookingError("INVALID_SEGMENT", "Journey must have at least two stops and a complete 42-seat coach layout.");
+          }
+          const updated = await tx.journey.update({
+            where: { id: current.id }, data: { status: "BOOKING_OPEN" },
+            include: { stops: { orderBy: { sequence: "asc" } } },
+          });
+          await tx.journeyEvent.create({
+            data: { journeyId: current.id, actorId: session.userId, eventType: "journey.booking_opened", payload: {} },
+          });
+          return updated;
+        });
+        return response(200, { journey });
+      }
+
       const journeyAction = path.match(/^\/api\/operator\/journeys\/([^/]+)\/(close-booking|complete)$/);
       if (method === "POST" && journeyAction) {
         if (!session) return response(401, { error: { code: "UNAUTHENTICATED", message: "Sign in to control the journey." } });
