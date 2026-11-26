@@ -129,10 +129,10 @@ BEGIN
   END IF;
 
   FOR affected_layout_id IN
-    SELECT DISTINCT value
-    FROM unnest(affected_layout_ids) AS value
-    WHERE value IS NOT NULL
-    ORDER BY value
+    SELECT DISTINCT layout_id
+    FROM unnest(affected_layout_ids) AS layouts(layout_id)
+    WHERE layout_id IS NOT NULL
+    ORDER BY layout_id
   LOOP
     FOR affected_journey_id IN
       SELECT id
