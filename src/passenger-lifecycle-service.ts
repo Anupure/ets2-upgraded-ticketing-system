@@ -32,7 +32,7 @@ export async function disembarkPassenger(db: Db, operatorId: string, ticketId: s
         ![JourneyStatus.IN_PROGRESS, JourneyStatus.PAUSED].includes(ticket.journey.status)) {
       throw new BookingError("BOARDING_NOT_ALLOWED", "Only an onboard passenger can disembark during an active journey.");
     }
-    if (ticket.destinationStop.status !== "ARRIVED" || ticket.journey.currentStopSequence !== ticket.destinationStop.sequence) {
+    if (!["ARRIVED", "BOARDING_OPEN"].includes(ticket.destinationStop.status) || ticket.journey.currentStopSequence !== ticket.destinationStop.sequence) {
       throw new BookingError("BOARDING_NOT_ALLOWED", "The coach has not arrived at this passenger's destination stop.");
     }
 
