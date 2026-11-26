@@ -5,9 +5,11 @@ on:
     branches:
       - master
       - feat/booking-lifecycle-hardening
+      - fix/lifecycle-concurrency-migrations
   pull_request:
     branches:
       - master
+      - feat/booking-lifecycle-hardening
 
 jobs:
   validate:
