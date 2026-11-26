@@ -18,7 +18,7 @@ async function requireOperator(db: Prisma.TransactionClient | PrismaClient, oper
     where: { id: operatorId }, select: { id: true, role: true, status: true },
   });
   if (!actor || actor.status !== UserStatus.ACTIVE ||
-      ![UserRole.OPERATOR, UserRole.ADMIN].includes(actor.role)) {
+      actor.role !== UserRole.OPERATOR && actor.role !== UserRole.ADMIN) {
     throw new BookingError("BOARDING_NOT_ALLOWED", "Only an active operator or administrator can access the operator dashboard.");
   }
 }
@@ -65,7 +65,7 @@ export async function getOperatorDashboard(db: Db, operatorId: string, journeyId
   const currentLegReservations = currentSequence === null ? [] : tickets.flatMap((ticket) =>
     ticket.seatReservations.filter((reservation) =>
       reservation.fromSequence <= currentSequence && reservation.toSequence > currentSequence &&
-      [SeatReservationStatus.CONFIRMED, SeatReservationStatus.OCCUPIED, SeatReservationStatus.HELD].includes(reservation.status),
+      (reservation.status === SeatReservationStatus.CONFIRMED || reservation.status === SeatReservationStatus.OCCUPIED || reservation.status === SeatReservationStatus.HELD),
     ),
   );
 
