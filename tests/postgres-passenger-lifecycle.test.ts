@@ -68,21 +68,31 @@ integration("PostgreSQL passenger lifecycle", () => {
 
   it("purchases, boards, releases and reuses a seat across adjacent segments; finalizes a no-show", async () => {
     const suffix = randomUUID().replaceAll("-", "").slice(0, 12);
+    const createdUserIds: string[] = [];
+    let layoutId: string | undefined;
+    let journeyId: string | undefined;
+
+    try {
     const operator = await prisma.user.create({ data: {
       username: `op_${suffix}`, displayName: "CI Operator", role: UserRole.OPERATOR, status: UserStatus.ACTIVE,
     } });
+    createdUserIds.push(operator.id);
     const firstPassenger = await prisma.user.create({ data: {
       username: `p1_${suffix}`, displayName: "Passenger One",
     } });
+    createdUserIds.push(firstPassenger.id);
     const secondPassenger = await prisma.user.create({ data: {
       username: `p2_${suffix}`, displayName: "Passenger Two",
     } });
+    createdUserIds.push(secondPassenger.id);
     const noShowPassenger = await prisma.user.create({ data: {
       username: `p3_${suffix}`, displayName: "No Show Passenger",
     } });
+    createdUserIds.push(noShowPassenger.id);
     const overlappingPassenger = await prisma.user.create({ data: {
       username: `p4_${suffix}`, displayName: "Overlapping Passenger",
     } });
+    createdUserIds.push(overlappingPassenger.id);
     const layout = await prisma.busLayout.create({ data: {
       name: `CI Coach ${suffix}`, capacity: 2,
       seats: { create: [
@@ -90,6 +100,7 @@ integration("PostgreSQL passenger lifecycle", () => {
         { seatNumber: "1B", rowNumber: 1, columnNumber: 2 },
       ] },
     } });
+    layoutId = layout.id;
     const journey = await prisma.journey.create({ data: {
       name: `CI Journey ${suffix}`, busLayoutId: layout.id,
       createdBy: operator.id, status: JourneyStatus.BOOKING_OPEN, ticketPrice: 100n,
@@ -99,6 +110,7 @@ integration("PostgreSQL passenger lifecycle", () => {
         { sequence: 3, name: "Destination" },
       ] },
     } });
+    journeyId = journey.id;
     const stops = await prisma.journeyStop.findMany({
       where: { journeyId: journey.id }, orderBy: { sequence: "asc" },
     });
@@ -187,5 +199,8 @@ integration("PostgreSQL passenger lifecycle", () => {
     expect(finalSecond.status).toBe(TicketStatus.COMPLETED);
     expect(finalSecond.seatReservations[0]?.status).toBe(SeatReservationStatus.RELEASED);
     expect((await prisma.journeyStop.findUniqueOrThrow({ where: { id: origin.id } })).status).toBe(StopStatus.DEPARTED);
+    } finally {
+      await cleanupIntegrationData(journeyId, layoutId, createdUserIds);
+    }
   });
 });
