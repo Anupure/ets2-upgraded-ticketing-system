@@ -14,7 +14,7 @@ function databaseWithInactiveOperator() {
 describe("operator passenger lifecycle authorization", () => {
   it("rejects disembarkation when the actor is not an active operator", async () => {
     await expect(disembarkPassenger(databaseWithInactiveOperator(), "user-1", "ticket-1"))
-      .rejects.toMatchObject<Partial<BookingError>>({ code: "BOARDING_NOT_ALLOWED" });
+      .rejects.toMatchObject({ code: "BOARDING_NOT_ALLOWED" });
   });
 
   it("rejects no-show finalization when the actor is not an active operator", async () => {
