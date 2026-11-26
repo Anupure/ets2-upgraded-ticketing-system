@@ -105,7 +105,7 @@ END;
 $$;
 
 CREATE TRIGGER bus_layouts_guard_structure
-BEFORE UPDATE OF capacity, layout
+BEFORE UPDATE OF capacity, layout_json
 ON bus_layouts
 FOR EACH ROW
 EXECUTE FUNCTION guard_bus_layout_structure();
