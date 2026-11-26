@@ -142,7 +142,6 @@ integration("booked route and bus layout integrity", () => {
     let userId: string | undefined;
     let journeyId: string | undefined;
     let layoutId: string | undefined;
-    let ticketId: string | undefined;
 
     try {
       const user = await prisma.user.create({
@@ -200,7 +199,6 @@ integration("booked route and bus layout integrity", () => {
             pricePaid: 100n,
           },
         });
-        ticketId = ticket.id;
 
         await tx.seatReservation.create({
           data: {
