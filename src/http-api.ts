@@ -179,6 +179,74 @@ export function createApiHandler({ db, getSession }: ApiDependencies) {
         });
       }
 
+      if (method === "POST" && path === "/api/operator/journeys") {
+        if (!session) return response(401, { error: { code: "UNAUTHENTICATED", message: "Sign in to create a journey." } });
+        const body = objectBody(request.body);
+        if (!body || !hasOnlyKeys(body, ["name", "description", "ticketPrice", "departureAt", "stops"])) {
+          return response(400, { error: { code: "INVALID_BODY", message: "Provide journey name, ticket price, optional description/departure, and stops." } });
+        }
+        const name = typeof body.name === "string" ? body.name.trim() : "";
+        const description = typeof body.description === "string" ? body.description.trim() : null;
+        const ticketPrice = typeof body.ticketPrice === "number" && Number.isSafeInteger(body.ticketPrice) ? body.ticketPrice : NaN;
+        const departureAt = body.departureAt === null || body.departureAt === undefined || body.departureAt === ""
+          ? null : new Date(String(body.departureAt));
+        const stops = body.stops;
+        if (!name || name.length > 120 || !Number.isSafeInteger(ticketPrice) || ticketPrice < 1 ||
+            (description !== null && description.length > 2000) ||
+            (departureAt && Number.isNaN(departureAt.getTime())) ||
+            !Array.isArray(stops) || stops.length < 2 || stops.length > 30 ||
+            stops.some((stop) => typeof stop !== "string" || !stop.trim() || stop.trim().length > 120)) {
+          return response(400, { error: { code: "INVALID_JOURNEY", message: "Enter a journey name, positive whole-token price and 2–30 valid stop names." } });
+        }
+        const result = await db.$transaction(async (tx) => {
+          const actor = await tx.user.findUnique({ where: { id: session.userId }, select: { role: true, status: true } });
+          if (!actor || actor.status !== "ACTIVE" || (actor.role !== "OPERATOR" && actor.role !== "ADMIN")) {
+            throw new BookingError("OPERATOR_REQUIRED", "Only active operators and administrators can create journeys.");
+          }
+          let layout = await tx.busLayout.findFirst({
+            where: { isActive: true, capacity: 42 },
+            orderBy: { createdAt: "asc" },
+            select: { id: true, _count: { select: { seats: true } } },
+          });
+          if (!layout || layout._count.seats !== 42) {
+            const created = await tx.busLayout.create({
+              data: {
+                name: "Standard 42-seat coach",
+                capacity: 42,
+                layout: { rows: 11, columns: 5, aisleAfterColumn: 2 },
+                seats: { create: Array.from({ length: 42 }, (_, index) => ({
+                  seatNumber: String(index + 1),
+                  rowNumber: Math.floor(index / 4) + 1,
+                  columnNumber: (index % 4) + (index % 4 >= 2 ? 2 : 1),
+                  seatType: "STANDARD",
+                  isBookable: true,
+                })) },
+              },
+              select: { id: true },
+            });
+            layout = { id: created.id, _count: { seats: 42 } };
+          }
+          const journey = await tx.journey.create({
+            data: {
+              name,
+              description,
+              ticketPrice: BigInt(ticketPrice),
+              departureAt,
+              busLayoutId: layout.id,
+              createdBy: session.userId,
+              status: "DRAFT",
+              stops: { create: stops.map((stop, index) => ({ name: stop.trim(), sequence: index + 1 })) },
+            },
+            include: { stops: { orderBy: { sequence: "asc" } } },
+          });
+          await tx.journeyEvent.create({
+            data: { journeyId: journey.id, actorId: session.userId, eventType: "journey.created", payload: { stopCount: stops.length } },
+          });
+          return journey;
+        });
+        return response(201, { journey: result });
+      }
+
       const checkInMatch = path.match(/^\/api\/tickets\/([^/]+)\/check-in$/);
       if (method === "POST" && checkInMatch) {
         if (!session) return response(401, { error: { code: "UNAUTHENTICATED", message: "Sign in to check in." } });
