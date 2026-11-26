@@ -1,5 +1,13 @@
 import { Prisma, PrismaClient } from "@prisma/client";
 
+// Shared by journey transactions; structural route/seat edits take the exclusive form.
+const JOURNEY_MUTATION_LOCK_CLASS = 742;
+const JOURNEY_MUTATION_LOCK_ID = 20261127;
+
+export async function lockJourneyMutationShared(tx: Prisma.TransactionClient): Promise<void> {
+  await tx.$queryRaw`SELECT pg_advisory_xact_lock_shared(${JOURNEY_MUTATION_LOCK_CLASS}, ${JOURNEY_MUTATION_LOCK_ID})`;
+}
+
 /** Retry only PostgreSQL serialization conflicts; never replay domain failures. */
 export async function withSerializableRetry<T>(
   db: PrismaClient,
