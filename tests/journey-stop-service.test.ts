@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  arriveAtStop, closeBooking, openBoardingAtStop, departStop,
+  arriveAtStop, closeBooking, openBoardingAtStop, departStop, completeJourneyAtFinalStop,
 } from "../src/journey-stop-service.js";
 
 function databaseWithInactiveOperator() {
@@ -24,6 +24,11 @@ describe("operator journey stop controls", () => {
 
   it("rejects opening boarding when the actor is not an active operator", async () => {
     await expect(openBoardingAtStop(databaseWithInactiveOperator(), "user-1", "journey-1", "stop-1"))
+      .rejects.toMatchObject({ code: "BOARDING_NOT_ALLOWED" });
+  });
+
+  it("rejects final completion when the actor is not an active operator", async () => {
+    await expect(completeJourneyAtFinalStop(databaseWithInactiveOperator(), "user-1", "journey-1"))
       .rejects.toMatchObject({ code: "BOARDING_NOT_ALLOWED" });
   });
 
