@@ -146,7 +146,6 @@ export async function checkIn(db: Db, userId: string, ticketId: string) {
     const reference = await tx.ticket.findFirst({ where: { id: ticketId, userId }, select: { journeyId: true } });
     if (!reference) throw new BookingError("TICKET_NOT_FOUND", "Ticket not found for this account.");
     await lockJourneyMutationShared(tx);
-    await lockJourneyMutationShared(tx);
     await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM journeys WHERE id = ${reference.journeyId}::uuid FOR UPDATE`;
     const ticket = await tx.ticket.findFirst({ where: { id: ticketId, userId }, include: { journey: true, originStop: true, passengerJourney: true } });
     if (!ticket) throw new BookingError("TICKET_NOT_FOUND", "Ticket not found for this account.");
@@ -185,6 +184,7 @@ export async function confirmBoarding(db: Db, operatorId: string, ticketId: stri
       where: { id: ticketId }, select: { journeyId: true },
     });
     if (!reference) throw new BookingError("TICKET_NOT_FOUND", "Ticket not found.");
+    await lockJourneyMutationShared(tx);
     await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM journeys WHERE id = ${reference.journeyId}::uuid FOR UPDATE`;
     const ticket = await tx.ticket.findUnique({
       where: { id: ticketId },
