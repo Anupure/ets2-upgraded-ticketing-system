@@ -214,9 +214,11 @@ integration("booked route and bus layout integrity", () => {
       }, { timeout: 15000 });
 
       await journeyLocked;
+      // Changing a key column takes a stronger row lock and exercises the
+      // lock-order hazard that a non-key isBookable update would not expose.
       const seatEdit = prisma.busSeat.update({
         where: { id: layout.seats[0]!.id },
-        data: { isBookable: false },
+        data: { seatNumber: "1B" },
       });
 
       // Give the competing statement time to reach its BEFORE STATEMENT lock.
