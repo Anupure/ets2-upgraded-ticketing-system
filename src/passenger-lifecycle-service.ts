@@ -92,6 +92,7 @@ export async function markNoShow(db: Db, operatorId: string, ticketId: string) {
 
     const ticketRef = await tx.ticket.findUnique({ where: { id: ticketId }, select: { journeyId: true } });
     if (!ticketRef) throw new BookingError("TICKET_NOT_FOUND", "Ticket not found.");
+    await lockJourneyMutationShared(tx);
     await tx.$queryRaw<Array<{ id: string }>>`
       SELECT id FROM journeys WHERE id = ${ticketRef.journeyId}::uuid FOR UPDATE
     `;
