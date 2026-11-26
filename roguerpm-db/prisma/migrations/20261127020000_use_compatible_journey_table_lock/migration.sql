@@ -10,12 +10,12 @@
 CREATE OR REPLACE FUNCTION acquire_journey_mutation_shared_lock()
 RETURNS boolean
 LANGUAGE plpgsql
-AS $
+AS $$
 BEGIN
   PERFORM pg_advisory_xact_lock_shared(742, 20261127);
   RETURN true;
 END;
-$;
+$$;
 
 CREATE OR REPLACE FUNCTION lock_journeys_before_bus_seat_mutation()
 RETURNS trigger
