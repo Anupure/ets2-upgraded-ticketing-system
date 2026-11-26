@@ -12,7 +12,6 @@ integration("booked route and bus layout integrity", () => {
     let journeyId: string | undefined;
     let layoutId: string | undefined;
     let alternateLayoutId: string | undefined;
-    let ticketId: string | undefined;
 
     try {
       const user = await prisma.user.create({
@@ -76,7 +75,6 @@ integration("booked route and bus layout integrity", () => {
           pricePaid: 100n,
         },
       });
-      ticketId = ticket.id;
 
       // Structural route edits must fail even when the changed stop is not
       // directly referenced by the ticket.
