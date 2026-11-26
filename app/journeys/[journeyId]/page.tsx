@@ -34,7 +34,7 @@ export default async function JourneyPage({ params }: { params: Promise<{ journe
         <div className="journey-facts"><span><small>STATUS</small>{journey.status.replaceAll("_", " ")}</span><span><small>FARE</small>{journey.ticketPrice.toString()} tokens</span><span><small>STOPS</small>{journey.stops.length}</span></div>
         <div className="journey-layout">
           <div><h2>Route</h2><div className="route-timeline">{journey.stops.map((stop,index)=><div className="route-stop" key={stop.id}><span className="route-stop-dot" /><div><strong>{stop.name}</strong><small>STOP {stop.sequence} · {stop.status.replaceAll("_"," ")}</small></div>{index<journey.stops.length-1?<span className="route-stop-line"/>:null}</div>)}</div></div>
-          <div><h2>Choose your seat</h2><BookingPanel journeyId={journey.id} stops={stops} initialSeats={initialSeats} signedIn={Boolean(session?.user?.id)} /></div>
+          <div><h2>Choose your seat</h2><BookingPanel journeyId={journey.id} stops={stops} initialSeats={initialSeats} signedIn={Boolean(session?.user?.id)} canBook={journey.status === "BOOKING_OPEN"} /></div>
         </div>
       </section>
     </main>
