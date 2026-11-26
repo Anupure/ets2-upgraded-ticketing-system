@@ -3,12 +3,13 @@ import {
   PassengerJourneyStatus, BoardingEventType, UserStatus, UserRole,
 } from "@prisma/client";
 import { BookingError } from "./errors.js";
+import { withSerializableRetry } from "./transaction.js";
 
 type Db = PrismaClient;
 
 /** Complete an onboard passenger at their booked destination and release the seat. */
 export async function disembarkPassenger(db: Db, operatorId: string, ticketId: string) {
-  return db.$transaction(async (tx) => {
+  return withSerializableRetry(db, async (tx) => {
     const operator = await tx.user.findUnique({
       where: { id: operatorId }, select: { id: true, role: true, status: true },
     });
@@ -54,10 +55,13 @@ export async function disembarkPassenger(db: Db, operatorId: string, ticketId: s
     });
     if (released.count !== 1) throw new BookingError("SEAT_UNAVAILABLE", "Seat reservation changed before disembarkation.");
 
-    await tx.passengerJourney.updateMany({
+    const passengerChanged = await tx.passengerJourney.updateMany({
       where: { ticketId, status: PassengerJourneyStatus.ONBOARD },
       data: { status: PassengerJourneyStatus.COMPLETED, actualDisembarkedAt: now },
     });
+    if (passengerChanged.count !== 1) {
+      throw new BookingError("BOARDING_NOT_ALLOWED", "Passenger journey state is inconsistent with the boarded ticket.");
+    }
     await tx.boardingEvent.create({
       data: { ticketId, stopId: ticket.destinationStopId, eventType: BoardingEventType.DISEMBARKED },
     });
@@ -76,7 +80,7 @@ export async function disembarkPassenger(db: Db, operatorId: string, ticketId: s
  * Absence is never inferred from a timer; an operator explicitly confirms it.
  */
 export async function markNoShow(db: Db, operatorId: string, ticketId: string) {
-  return db.$transaction(async (tx) => {
+  return withSerializableRetry(db, async (tx) => {
     const operator = await tx.user.findUnique({
       where: { id: operatorId }, select: { id: true, role: true, status: true },
     });
@@ -122,10 +126,13 @@ export async function markNoShow(db: Db, operatorId: string, ticketId: string) {
     });
     if (released.count !== 1) throw new BookingError("SEAT_UNAVAILABLE", "Seat reservation changed before no-show finalization.");
 
-    await tx.passengerJourney.updateMany({
+    const passengerChanged = await tx.passengerJourney.updateMany({
       where: { ticketId, status: { in: [PassengerJourneyStatus.BOOKED, PassengerJourneyStatus.CHECKED_IN] } },
       data: { status: PassengerJourneyStatus.NO_SHOW },
     });
+    if (passengerChanged.count !== 1) {
+      throw new BookingError("BOARDING_NOT_ALLOWED", "Passenger journey state is inconsistent with the unboarded ticket.");
+    }
     await tx.boardingEvent.create({
       data: { ticketId, stopId: ticket.originStopId, eventType: BoardingEventType.NO_SHOW },
     });

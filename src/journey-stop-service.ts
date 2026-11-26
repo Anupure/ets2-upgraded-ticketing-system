@@ -2,6 +2,7 @@ import {
   Prisma, PrismaClient, JourneyStatus, TicketStatus, StopStatus, UserRole, UserStatus,
 } from "@prisma/client";
 import { BookingError } from "./errors.js";
+import { withSerializableRetry } from "./transaction.js";
 
 type Db = PrismaClient;
 
@@ -36,7 +37,7 @@ async function recordStopEvent(
  * PAUSED with no current stop is the explicit pre-departure/booking-closed state.
  */
 export async function closeBooking(db: Db, operatorId: string, journeyId: string) {
-  return db.$transaction(async (tx) => {
+  return withSerializableRetry(db, async (tx) => {
     await requireOperator(tx, operatorId);
     await lockJourney(tx, journeyId);
     const journey = await tx.journey.findUnique({ where: { id: journeyId } });
@@ -62,7 +63,7 @@ export async function closeBooking(db: Db, operatorId: string, journeyId: string
  * ticket sales closed (PAUSED with no current stop); later arrivals require IN_PROGRESS.
  */
 export async function arriveAtStop(db: Db, operatorId: string, journeyId: string, stopId: string) {
-  return db.$transaction(async (tx) => {
+  return withSerializableRetry(db, async (tx) => {
     await requireOperator(tx, operatorId);
     await lockJourney(tx, journeyId);
     const journey = await tx.journey.findUnique({
@@ -109,7 +110,7 @@ export async function arriveAtStop(db: Db, operatorId: string, journeyId: string
 
 /** Open the passenger check-in and physical boarding window at the arrived stop. */
 export async function openBoardingAtStop(db: Db, operatorId: string, journeyId: string, stopId: string) {
-  return db.$transaction(async (tx) => {
+  return withSerializableRetry(db, async (tx) => {
     await requireOperator(tx, operatorId);
     await lockJourney(tx, journeyId);
     const journey = await tx.journey.findUnique({ where: { id: journeyId } });
@@ -142,7 +143,7 @@ export async function openBoardingAtStop(db: Db, operatorId: string, journeyId: 
  * transition. At the final stop, complete the journey instead of advancing.
  */
 export async function departStop(db: Db, operatorId: string, journeyId: string, stopId: string) {
-  return db.$transaction(async (tx) => {
+  return withSerializableRetry(db, async (tx) => {
     await requireOperator(tx, operatorId);
     await lockJourney(tx, journeyId);
     const journey = await tx.journey.findUnique({
@@ -158,6 +159,16 @@ export async function departStop(db: Db, operatorId: string, journeyId: string, 
         journey.status !== JourneyStatus.BOARDING ||
         journey.currentStopSequence !== stop.sequence) {
       throw new BookingError("BOARDING_NOT_ALLOWED", "The current stop must have an open boarding window before departure.");
+    }
+
+    // The journey row lock serializes this check against disembarkation.
+    const dueToDisembark = await tx.ticket.findMany({
+      where: { journeyId, status: TicketStatus.BOARDED, destinationStop: { sequence: stop.sequence } },
+      select: { id: true },
+      take: 1,
+    });
+    if (dueToDisembark.length > 0) {
+      throw new BookingError("BOARDING_NOT_ALLOWED", "Disembark all passengers whose booked destination is this stop before departure.");
     }
 
     const nextStop = journey.stops.find((item) => item.sequence > stop.sequence);
@@ -192,7 +203,7 @@ export async function departStop(db: Db, operatorId: string, journeyId: string, 
  * to open another boarding window or depart the destination.
  */
 export async function completeJourneyAtFinalStop(db: Db, operatorId: string, journeyId: string) {
-  return db.$transaction(async (tx) => {
+  return withSerializableRetry(db, async (tx) => {
     await requireOperator(tx, operatorId);
     await lockJourney(tx, journeyId);
     const journey = await tx.journey.findUnique({

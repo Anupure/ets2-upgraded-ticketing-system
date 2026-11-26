@@ -5,9 +5,11 @@ on:
     branches:
       - master
       - feat/booking-lifecycle-hardening
+      - fix/lifecycle-concurrency-migrations
   pull_request:
     branches:
       - master
+      - feat/booking-lifecycle-hardening
 
 jobs:
   validate:
@@ -28,6 +30,7 @@ jobs:
           --health-retries 5
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ets2_ci?schema=public
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/ets2_ci?schema=public
       PGPASSWORD: postgres
     steps:
       - name: Checkout
@@ -39,7 +42,7 @@ jobs:
           node-version: 22
 
       - name: Install root dependencies
-        run: npm install
+        run: npm ci
 
       - name: Generate Prisma client
         run: npx prisma generate --schema roguerpm-db/prisma/schema.prisma
@@ -47,11 +50,8 @@ jobs:
       - name: Validate Prisma schema
         run: npx prisma validate --schema roguerpm-db/prisma/schema.prisma
 
-      - name: Push Prisma schema to PostgreSQL
-        run: npx prisma db push --schema roguerpm-db/prisma/schema.prisma
-
-      - name: Apply PostgreSQL integrity constraints
-        run: psql -h localhost -U postgres -d ets2_ci -v ON_ERROR_STOP=1 -f roguerpm-db/prisma/sql/postgres_integrity_constraints.sql
+      - name: Apply Prisma migrations to clean PostgreSQL database
+        run: npx prisma migrate deploy --schema roguerpm-db/prisma/schema.prisma
 
       - name: TypeScript typecheck
         run: npm run typecheck

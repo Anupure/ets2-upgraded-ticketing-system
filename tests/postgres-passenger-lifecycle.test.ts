@@ -13,6 +13,55 @@ import { disembarkPassenger, markNoShow } from "../src/passenger-lifecycle-servi
 const prisma = new PrismaClient();
 const integration = process.env.DATABASE_URL ? describe : describe.skip;
 
+
+async function cleanupIntegrationData(
+  journeyId: string | undefined,
+  layoutId: string | undefined,
+  userIds: string[],
+): Promise<void> {
+  await prisma.$transaction(async (tx) => {
+    if (journeyId) {
+      // Remove dependent records before their referenced parents.
+      await tx.breakCreditTransaction.deleteMany({
+        where: { passengerJourney: { journeyId } },
+      });
+      await tx.breakRequest.deleteMany({ where: { journeyId } });
+      await tx.boardingEvent.deleteMany({
+        where: { ticket: { journeyId } },
+      });
+      await tx.seatReservation.deleteMany({ where: { journeyId } });
+      await tx.passengerJourney.deleteMany({ where: { journeyId } });
+      await tx.ticket.deleteMany({ where: { journeyId } });
+      await tx.journeyStop.deleteMany({ where: { journeyId } });
+      await tx.streamSession.deleteMany({ where: { journeyId } });
+      await tx.journeyEvent.deleteMany({ where: { journeyId } });
+      await tx.journey.deleteMany({ where: { id: journeyId } });
+    }
+
+    if (layoutId) {
+      await tx.busLayout.deleteMany({ where: { id: layoutId } });
+    }
+
+    if (userIds.length > 0) {
+      await tx.walletTransaction.deleteMany({
+        where: {
+          OR: [
+            { wallet: { userId: { in: userIds } } },
+            { actorId: { in: userIds } },
+          ],
+        },
+      });
+      await tx.wallet.deleteMany({
+        where: { userId: { in: userIds } },
+      });
+      await tx.user.deleteMany({
+        where: { id: { in: userIds } },
+      });
+    }
+  });
+}
+
+
 integration("PostgreSQL passenger lifecycle", () => {
   beforeAll(async () => { await prisma.$connect(); });
   afterAll(async () => { await prisma.$disconnect(); });
@@ -105,6 +154,12 @@ integration("PostgreSQL passenger lifecycle", () => {
     expect(noShowState.seatReservations[0]?.status).toBe(SeatReservationStatus.RELEASED);
 
     await arriveAtStop(prisma, operator.id, journey.id, middle.id);
+    await openBoardingAtStop(prisma, operator.id, journey.id, middle.id);
+    await expect(departStop(prisma, operator.id, journey.id, middle.id))
+      .rejects.toMatchObject({ code: "BOARDING_NOT_ALLOWED" });
+    // The journey must remain at the stop so the passenger can still disembark.
+    expect((await prisma.journey.findUniqueOrThrow({ where: { id: journey.id } })).currentStopSequence)
+      .toBe(middle.sequence);
     await disembarkPassenger(prisma, operator.id, first.ticket.id);
     const firstState = await prisma.ticket.findUniqueOrThrow({
       where: { id: first.ticket.id }, include: { seatReservations: true, passengerJourney: true },
