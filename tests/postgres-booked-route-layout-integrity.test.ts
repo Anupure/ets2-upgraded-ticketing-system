@@ -17,6 +17,49 @@ async function waitForJourneyRowLock(timeoutMs = 5000): Promise<void> {
   throw new Error("Structural edit did not wait for the journey row lock");
 }
 integration("booked route and bus layout integrity", () => {
+  it("allows concurrent journey creation with nested stops", async () => {
+    const suffix = randomUUID().replaceAll("-", "").slice(0, 12);
+    const userIds: string[] = [];
+    const layoutIds: string[] = [];
+    const journeyIds: string[] = [];
+
+    try {
+      const fixtures = await Promise.all([1, 2].map(async (index) => {
+        const user = await prisma.user.create({
+          data: { username: `parallel_create_${suffix}_${index}`, displayName: "Parallel Create Test" },
+        });
+        userIds.push(user.id);
+        const layout = await prisma.busLayout.create({
+          data: {
+            name: `Parallel Create Coach ${suffix} ${index}`,
+            capacity: 1,
+            seats: { create: [{ seatNumber: "1A", rowNumber: 1, columnNumber: 1 }] },
+          },
+        });
+        layoutIds.push(layout.id);
+        return { user, layout };
+      }));
+
+      const journeys = await Promise.all(fixtures.map(({ user, layout }, index) =>
+        prisma.journey.create({
+          data: {
+            name: `Parallel Create Journey ${suffix} ${index}`,
+            busLayoutId: layout.id,
+            createdBy: user.id,
+            status: JourneyStatus.DRAFT,
+            stops: { create: [{ sequence: 1, name: "Origin" }, { sequence: 2, name: "Destination" }] },
+          },
+        })
+      ));
+      journeyIds.push(...journeys.map((journey) => journey.id));
+      expect(journeys).toHaveLength(2);
+    } finally {
+      if (journeyIds.length) await prisma.journey.deleteMany({ where: { id: { in: journeyIds } } });
+      if (layoutIds.length) await prisma.busLayout.deleteMany({ where: { id: { in: layoutIds } } });
+      if (userIds.length) await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+    }
+  });
+
   it("freezes structural edits after ticketing but permits stop metadata corrections", async () => {
     const suffix = randomUUID().replaceAll("-", "").slice(0, 12);
     let userId: string | undefined;
