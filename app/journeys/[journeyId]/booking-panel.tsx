@@ -6,7 +6,7 @@ type Stop = { id: string; sequence: number; name: string };
 type Seat = { seatNumber: string; row: number; column: number; seatType: string; bookable: boolean; state: string; passenger: { displayName: string; avatarUrl: string | null } | null };
 
 export function BookingPanel({ journeyId, stops, initialSeats, signedIn, canBook }: {
-  journeyId: string; stops: Stop[]; initialSeats: Seat[]; signedIn: boolean; canBook: boolean; canBook: boolean;
+  journeyId: string; stops: Stop[]; initialSeats: Seat[]; signedIn: boolean; canBook: boolean;
 }) {
   const [originId, setOriginId] = useState(stops[0]?.id ?? "");
   const [destinationId, setDestinationId] = useState(stops[1]?.id ?? "");
