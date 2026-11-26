@@ -41,7 +41,7 @@ export function JourneyControls({ journeyId, status, stops }: Props) {
       <div className="operator-actions">
         {status === "DRAFT" || status === "SCHEDULED" ? button("open", "Open ticket sales", `/api/operator/journeys/${journeyId}/open-booking`) : null}
         {status === "BOOKING_OPEN" ? button("close", "Close ticket sales", `/api/operator/journeys/${journeyId}/close-booking`) : null}
-        {status === "PAUSED" && firstUpcoming ? button("arrive", `Arrive at ${firstUpcoming.name}`, `/api/operator/journeys/${journeyId}/stops/${firstUpcoming.id}/arrive`) : null}
+        {status === "PAUSED" && !arrived && firstUpcoming ? button("arrive", `Arrive at ${firstUpcoming.name}`, `/api/operator/journeys/${journeyId}/stops/${firstUpcoming.id}/arrive`) : null}
         {status === "IN_PROGRESS" && firstUpcoming ? button("arrive", `Arrive at ${firstUpcoming.name}`, `/api/operator/journeys/${journeyId}/stops/${firstUpcoming.id}/arrive`) : null}
         {status === "PAUSED" && arrived ? button("boarding", "Open boarding", `/api/operator/journeys/${journeyId}/stops/${arrived.id}/open-boarding`) : null}
         {status === "BOARDING" && boarding ? button("depart", `Depart ${boarding.name}`, `/api/operator/journeys/${journeyId}/stops/${boarding.id}/depart`) : null}
