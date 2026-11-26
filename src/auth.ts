@@ -16,8 +16,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   callbacks: {
     async signIn({ user, account, profile }) {
       if (account?.provider !== "google" || !user.email) return false;
-      const googleProfile = profile as typeof profile & { email_verified?: boolean };
-      if (googleProfile.email_verified !== true) return false;
+      const googleProfile = profile as ({ email_verified?: boolean } | undefined);
+      if (googleProfile?.email_verified !== true) return false;
 
       const email = user.email.toLowerCase();
       const displayName = (user.name || email.split("@")[0] || "Passenger").slice(0, 60);
