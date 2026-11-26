@@ -40,7 +40,6 @@ export default async function OperatorJourneyPage({ params }: { params: Promise<
         <div className="operator-list">
           {stops.map(stop => <article className="operator-row" key={stop.id}>
             <div><small>STOP {stop.sequence + 1}</small><h3>{stop.name}</h3><p className="muted">{stop.status.replaceAll("_", " ")}</p></div>
-            <Link className="button button-secondary" href={`/operator/journeys/${journey.id}/stops/${stop.id}`}>Manifest</Link>
           </article>)}
         </div>
       </section>
