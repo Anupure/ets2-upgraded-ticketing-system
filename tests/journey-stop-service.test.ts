@@ -13,27 +13,26 @@ function databaseWithInactiveOperator() {
 describe("operator journey stop controls", () => {
   it("rejects booking closure when the actor is not an active operator", async () => {
     await expect(closeBooking(databaseWithInactiveOperator(), "user-1", "journey-1"))
-      .rejects.toMatchObject({ code: "BOARDING_NOT_ALLOWED" });
+      .rejects.toMatchObject({ code: "OPERATOR_REQUIRED" });
   });
-
 
   it("rejects arrival when the actor is not an active operator", async () => {
     await expect(arriveAtStop(databaseWithInactiveOperator(), "user-1", "journey-1", "stop-1"))
-      .rejects.toMatchObject({ code: "BOARDING_NOT_ALLOWED" });
+      .rejects.toMatchObject({ code: "OPERATOR_REQUIRED" });
   });
 
   it("rejects opening boarding when the actor is not an active operator", async () => {
     await expect(openBoardingAtStop(databaseWithInactiveOperator(), "user-1", "journey-1", "stop-1"))
-      .rejects.toMatchObject({ code: "BOARDING_NOT_ALLOWED" });
+      .rejects.toMatchObject({ code: "OPERATOR_REQUIRED" });
   });
 
   it("rejects final completion when the actor is not an active operator", async () => {
     await expect(completeJourneyAtFinalStop(databaseWithInactiveOperator(), "user-1", "journey-1"))
-      .rejects.toMatchObject({ code: "BOARDING_NOT_ALLOWED" });
+      .rejects.toMatchObject({ code: "OPERATOR_REQUIRED" });
   });
 
   it("rejects departure when the actor is not an active operator", async () => {
     await expect(departStop(databaseWithInactiveOperator(), "user-1", "journey-1", "stop-1"))
-      .rejects.toMatchObject({ code: "BOARDING_NOT_ALLOWED" });
+      .rejects.toMatchObject({ code: "OPERATOR_REQUIRED" });
   });
 });
