@@ -38,7 +38,7 @@ export default async function OperatorJourneyPage({ params }: { params: Promise<
           <article className="stat-card"><span>{passengerCounts.seatAvailabilityScope === "current-leg" ? "Seats free · current leg" : "Seats free · tightest leg"}</span><strong>{passengerCounts.availableSeats} <small>/ {bus.bookableSeats}</small></strong></article>
         </div>
         <p className="operator-live-note">Dashboard refreshes automatically every 5 seconds while this page is open.</p>
-        <JourneyControls journeyId={journey.id} status={journey.status} stops={stops.map(stop => ({ id: stop.id, name: stop.name, sequence: stop.sequence, status: stop.status }))} />
+        <JourneyControls journeyId={journey.id} status={journey.status} stops={stops.map(stop => ({ id: stop.id, name: stop.name, sequence: stop.sequence, status: stop.status }))} canComplete={passengerCounts.byStatus.CONFIRMED + passengerCounts.byStatus.CHECKED_IN + passengerCounts.byStatus.BOARDED === 0} />
         <h2>Route and stop operations</h2>
         <div className="operator-list">
           {stops.map(stop => <article className="operator-row" key={stop.id}>
