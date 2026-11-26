@@ -49,11 +49,8 @@ jobs:
       - name: Validate Prisma schema
         run: npx prisma validate --schema roguerpm-db/prisma/schema.prisma
 
-      - name: Push Prisma schema to PostgreSQL
-        run: npx prisma db push --schema roguerpm-db/prisma/schema.prisma
-
-      - name: Apply PostgreSQL integrity constraints
-        run: psql -h localhost -U postgres -d ets2_ci -v ON_ERROR_STOP=1 -f roguerpm-db/prisma/sql/postgres_integrity_constraints.sql
+      - name: Apply Prisma migrations to clean PostgreSQL database
+        run: npx prisma migrate deploy --schema roguerpm-db/prisma/schema.prisma
 
       - name: TypeScript typecheck
         run: npm run typecheck
