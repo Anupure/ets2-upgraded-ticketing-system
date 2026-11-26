@@ -184,7 +184,7 @@ export async function confirmBoarding(db: Db, operatorId: string, ticketId: stri
     });
     if (!operator || operator.status !== UserStatus.ACTIVE ||
         operator.role !== UserRole.OPERATOR && operator.role !== UserRole.ADMIN) {
-      throw new BookingError("BOARDING_NOT_ALLOWED", "Only an active operator or administrator can confirm physical boarding.");
+      throw new BookingError("OPERATOR_REQUIRED", "Only an active operator or administrator can confirm physical boarding.");
     }
 
     const reference = await tx.ticket.findUnique({
