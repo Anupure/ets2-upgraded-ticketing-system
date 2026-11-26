@@ -4,9 +4,9 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 type Stop = { id: string; name: string; sequence: number; status: string };
-type Props = { journeyId: string; status: string; stops: Stop[] };
+type Props = { journeyId: string; status: string; stops: Stop[]; canComplete: boolean };
 
-export function JourneyControls({ journeyId, status, stops }: Props) {
+export function JourneyControls({ journeyId, status, stops, canComplete }: Props) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
@@ -44,9 +44,10 @@ export function JourneyControls({ journeyId, status, stops }: Props) {
         {status === "BOOKING_OPEN" ? button("close", "Close ticket sales", `/api/operator/journeys/${journeyId}/close-booking`) : null}
         {status === "PAUSED" && !arrived && firstUpcoming ? button("arrive", `Arrive at ${firstUpcoming.name}`, `/api/operator/journeys/${journeyId}/stops/${firstUpcoming.id}/arrive`) : null}
         {status === "IN_PROGRESS" && firstUpcoming ? button("arrive", `Arrive at ${firstUpcoming.name}`, `/api/operator/journeys/${journeyId}/stops/${firstUpcoming.id}/arrive`) : null}
-        {status === "PAUSED" && arrived ? button("boarding", "Open boarding", `/api/operator/journeys/${journeyId}/stops/${arrived.id}/open-boarding`) : null}
+        {status === "PAUSED" && arrived && arrived.sequence !== finalStop?.sequence ? button("boarding", "Open boarding", `/api/operator/journeys/${journeyId}/stops/${arrived.id}/open-boarding`) : null}
         {status === "BOARDING" && boarding ? button("depart", `Depart ${boarding.name}`, `/api/operator/journeys/${journeyId}/stops/${boarding.id}/depart`) : null}
-        {status === "PAUSED" && finalStop?.status === "ARRIVED" ? button("complete", "Complete journey", `/api/operator/journeys/${journeyId}/complete`) : null}
+        {status === "PAUSED" && finalStop?.status === "ARRIVED" && canComplete ? button("complete", "Complete journey", `/api/operator/journeys/${journeyId}/complete`) : null}
+        {status === "PAUSED" && finalStop?.status === "ARRIVED" && !canComplete ? <p className="muted">Resolve all remaining passengers in the final-stop manifest before completing this journey.</p> : null}
         {status === "COMPLETED" ? <p className="muted">This journey is complete.</p> : null}
       </div>
       {error ? <p role="alert" className="form-error">{error}</p> : null}
