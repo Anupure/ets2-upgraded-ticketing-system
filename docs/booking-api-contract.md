@@ -11,6 +11,7 @@ This repository currently contains a Prisma 6 / TypeScript service package, not 
 - `getSeatMap(db, journeyId, fromSequence?, toSequence?)` — safe seat projection.
 - `disembarkPassenger(db, operatorId, ticketId)` — complete an onboard passenger at their destination and release the seat.
 - `markNoShow(db, operatorId, ticketId)` — finalize an unboarded passenger after the origin stop has departed and release the seat.
+- `closeBooking(db, operatorId, journeyId)` — close ticket sales and lock the journey before departure.
 - `arriveAtStop(db, operatorId, journeyId, stopId)` — mark the first or next stop arrived.
 - `openBoardingAtStop(db, operatorId, journeyId, stopId)` — open check-in and operator boarding at the current stop.
 - `departStop(db, operatorId, journeyId, stopId)` — close boarding and depart, or complete at the final stop.
@@ -79,11 +80,12 @@ Require an active `OPERATOR` or `ADMIN` session and call `getPassengerManifest`.
 
 ### Operator journey stop controls
 
-- `POST /api/operator/journeys/:journeyId/stops/:stopId/arrive` calls `arriveAtStop`. The first arrival is allowed only after booking is closed; subsequent arrivals must be the next stop after departure.
+- `POST /api/operator/journeys/:journeyId/close-booking` calls `closeBooking`. It transitions `BOOKING_OPEN` to `PAUSED` with no current stop, which is the explicit pre-departure state; ticket purchases then fail because the journey is no longer `BOOKING_OPEN`.
+- `POST /api/operator/journeys/:journeyId/stops/:stopId/arrive` calls `arriveAtStop`. The first arrival is allowed only from the booking-closed pre-departure state; subsequent arrivals must be the next stop after departure.
 - `POST /api/operator/journeys/:journeyId/stops/:stopId/open-boarding` calls `openBoardingAtStop`. This opens passenger check-in and physical boarding for the current arrived stop.
 - `POST /api/operator/journeys/:journeyId/stops/:stopId/depart` calls `departStop`. This closes the boarding window; the journey returns to `IN_PROGRESS`, or becomes `COMPLETED` at the final stop.
 
-Every operation requires an active `OPERATOR` or `ADMIN` session, locks the journey row, and records a journey event. The server must derive `operatorId` from the authenticated session.
+Every operation requires an active `OPERATOR` or `ADMIN` session, locks the journey row, and records a journey event. Passenger check-in and operator-confirmed boarding also acquire the same journey row lock, serializing them against stop departure and preventing a passenger from boarding concurrently with departure. The server must derive `operatorId` from the authenticated session.
 
 ### `GET /api/me/wallet`
 
