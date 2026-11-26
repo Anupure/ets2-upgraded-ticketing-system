@@ -30,6 +30,7 @@ jobs:
           --health-retries 5
     env:
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ets2_ci?schema=public
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/ets2_ci?schema=public
       PGPASSWORD: postgres
     steps:
       - name: Checkout
