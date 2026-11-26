@@ -138,11 +138,12 @@ export function createApiHandler({ db, getSession }: ApiDependencies) {
         return response(200, { seats: await getSeatMap(db, journeyId, from, to) });
       }
 
-      const purchaseMatch = path.match(/^\/api\/journeys\/([^/]+)\/tickets$/);\n      if (method === "POST" && purchaseMatch) {
+      const purchaseMatch = path.match(/^\/api\/journeys\/([^/]+)\/tickets$/);
+      if (method === "POST" && purchaseMatch) {
         if (!session) return response(401, { error: { code: "UNAUTHENTICATED", message: "Sign in to purchase a ticket." } });
         const body = objectBody(request.body);
-        if (!body || !hasOnlyKeys(body, ["journeyId", "originStopId", "destinationStopId", "seatNumber"]) ||
-            !isUuid(body.journeyId) || !isUuid(body.originStopId) ||
+        if (!body || !hasOnlyKeys(body, ["originStopId", "destinationStopId", "seatNumber"]) ||
+            !isUuid(body.originStopId) ||
             !isUuid(body.destinationStopId) || typeof body.seatNumber !== "string" ||
             body.seatNumber.length < 1 || body.seatNumber.length > 10) {
           return response(400, { error: { code: "INVALID_BODY", message: "Provide originStopId, destinationStopId and seatNumber only." } });
