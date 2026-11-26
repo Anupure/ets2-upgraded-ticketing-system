@@ -162,6 +162,9 @@ export async function getPassengerManifest(
         seatReservationStatus: reservation?.status ?? null,
         origin: ticket.originStop,
         destination: ticket.destinationStop,
+        stopAction: ticket.originStop.sequence === stop.sequence
+          ? "BOARD"
+          : ticket.destinationStop.sequence === stop.sequence ? "ALIGHT" : "ONBOARD",
         purchasedAt: ticket.purchasedAt,
         checkedInAt: ticket.checkedInAt,
         boardedAt: ticket.boardedAt,
