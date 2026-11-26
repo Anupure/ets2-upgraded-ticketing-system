@@ -11,6 +11,9 @@ This repository currently contains a Prisma 6 / TypeScript service package, not 
 - `getSeatMap(db, journeyId, fromSequence?, toSequence?)` — safe seat projection.
 - `disembarkPassenger(db, operatorId, ticketId)` — complete an onboard passenger at their destination and release the seat.
 - `markNoShow(db, operatorId, ticketId)` — finalize an unboarded passenger after the origin stop has departed and release the seat.
+- `arriveAtStop(db, operatorId, journeyId, stopId)` — mark the first or next stop arrived.
+- `openBoardingAtStop(db, operatorId, journeyId, stopId)` — open check-in and operator boarding at the current stop.
+- `departStop(db, operatorId, journeyId, stopId)` — close boarding and depart, or complete at the final stop.
 
 ## Required HTTP boundary
 
@@ -64,6 +67,14 @@ Require an active `OPERATOR` or `ADMIN` session and call `disembarkPassenger`. T
 
 Require an active `OPERATOR` or `ADMIN` session and call `markNoShow`. The coach must have departed the booked origin (`JourneyStop.status = DEPARTED`) and still be at that stop in the journey sequence. The operation handles both `CONFIRMED` and `CHECKED_IN` tickets that were not physically boarded, releases the confirmed seat, and records a no-show event. Do not infer absence from elapsed time alone.
 
+### Operator journey stop controls
+
+- `POST /api/operator/journeys/:journeyId/stops/:stopId/arrive` calls `arriveAtStop`. The first arrival is allowed only after booking is closed; subsequent arrivals must be the next stop after departure.
+- `POST /api/operator/journeys/:journeyId/stops/:stopId/open-boarding` calls `openBoardingAtStop`. This opens passenger check-in and physical boarding for the current arrived stop.
+- `POST /api/operator/journeys/:journeyId/stops/:stopId/depart` calls `departStop`. This closes the boarding window; the journey returns to `IN_PROGRESS`, or becomes `COMPLETED` at the final stop.
+
+Every operation requires an active `OPERATOR` or `ADMIN` session, locks the journey row, and records a journey event. The server must derive `operatorId` from the authenticated session.
+
 ### `GET /api/me/wallet`
 
 Return `balance` as a decimal string because Prisma `BigInt` cannot be serialized directly to JSON. Do not serialize the raw Prisma Wallet object.
@@ -72,7 +83,7 @@ Return `balance` as a decimal string because Prisma `BigInt` cannot be serialize
 
 - The PostgreSQL exclusion constraint `seat_reservations_no_overlap` is required for concurrent segment allocation.
 - The partial unique index currently permits one active ticket per passenger per journey. That is an MVP rule, not an unavoidable product rule.
-- Operator boarding, destination disembarkation, no-show finalization and seat release are implemented as separate transactional services. Journey stop advancement/control still needs an operator service.
+- Operator boarding, destination disembarkation, no-show finalization, seat release and stop arrival/boarding/departure controls are implemented as transactional services. HTTP routes, frontend and realtime delivery are still not implemented.
 - The booking API routes, Auth.js configuration, Next.js UI and realtime transport are not present in the current repo; do not pretend they are already implemented.
 - Publish realtime events only after a transaction commits. Prefer a transactional outbox before introducing Socket.IO broadcasts.
 - Retry PostgreSQL serialization failures (SQLSTATE `40001`) with a small bounded retry while preserving the same idempotency key.
