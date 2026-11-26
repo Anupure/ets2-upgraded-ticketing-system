@@ -29,6 +29,7 @@ export function JourneyControls({ journeyId, status, stops }: Props) {
   const firstUpcoming = stops.find(stop => stop.status === "UPCOMING");
   const arrived = stops.find(stop => stop.status === "ARRIVED");
   const boarding = stops.find(stop => stop.status === "BOARDING_OPEN");
+  const finalStop = stops[stops.length - 1];
   const button = (key: string, label: string, path: string) => (
     <button className="button button-primary" disabled={busy !== null} onClick={() => act(key, path)}>
       {busy === key ? "Working…" : label}
@@ -45,6 +46,7 @@ export function JourneyControls({ journeyId, status, stops }: Props) {
         {status === "IN_PROGRESS" && firstUpcoming ? button("arrive", `Arrive at ${firstUpcoming.name}`, `/api/operator/journeys/${journeyId}/stops/${firstUpcoming.id}/arrive`) : null}
         {status === "PAUSED" && arrived ? button("boarding", "Open boarding", `/api/operator/journeys/${journeyId}/stops/${arrived.id}/open-boarding`) : null}
         {status === "BOARDING" && boarding ? button("depart", `Depart ${boarding.name}`, `/api/operator/journeys/${journeyId}/stops/${boarding.id}/depart`) : null}
+        {status === "PAUSED" && finalStop?.status === "ARRIVED" ? button("complete", "Complete journey", `/api/operator/journeys/${journeyId}/complete`) : null}
         {status === "COMPLETED" ? <p className="muted">This journey is complete.</p> : null}
       </div>
       {error ? <p role="alert" className="form-error">{error}</p> : null}
