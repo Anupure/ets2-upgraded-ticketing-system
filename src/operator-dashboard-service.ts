@@ -44,7 +44,7 @@ export async function getOperatorDashboard(db: Db, operatorId: string, journeyId
   if (!journey) throw new BookingError("JOURNEY_NOT_OPEN", "Journey not found.");
 
   const tickets = await db.ticket.findMany({
-    where: { journeyId, status: { in: visibleTicketStatuses } },
+    where: { journeyId },
     select: {
       id: true, status: true, originStopId: true, destinationStopId: true,
       originStop: { select: { sequence: true } },
