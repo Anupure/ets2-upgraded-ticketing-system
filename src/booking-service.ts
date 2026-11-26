@@ -141,6 +141,9 @@ export async function purchaseTicket(db: Db, input: PurchaseTicketInput) {
 /** Passenger self-check-in. It does not mark the passenger as physically aboard. */
 export async function checkIn(db: Db, userId: string, ticketId: string) {
   return db.$transaction(async (tx) => {
+    const reference = await tx.ticket.findFirst({ where: { id: ticketId, userId }, select: { journeyId: true } });
+    if (!reference) throw new BookingError("TICKET_NOT_FOUND", "Ticket not found for this account.");
+    await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM journeys WHERE id = ${reference.journeyId}::uuid FOR UPDATE`;
     const ticket = await tx.ticket.findFirst({ where: { id: ticketId, userId }, include: { journey: true, originStop: true, passengerJourney: true } });
     if (!ticket) throw new BookingError("TICKET_NOT_FOUND", "Ticket not found for this account.");
     if (ticket.status === TicketStatus.CHECKED_IN) return { ticket, alreadyCheckedIn: true };
@@ -174,6 +177,11 @@ export async function confirmBoarding(db: Db, operatorId: string, ticketId: stri
       throw new BookingError("BOARDING_NOT_ALLOWED", "Only an active operator or administrator can confirm physical boarding.");
     }
 
+    const reference = await tx.ticket.findUnique({
+      where: { id: ticketId }, select: { journeyId: true },
+    });
+    if (!reference) throw new BookingError("TICKET_NOT_FOUND", "Ticket not found.");
+    await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM journeys WHERE id = ${reference.journeyId}::uuid FOR UPDATE`;
     const ticket = await tx.ticket.findUnique({
       where: { id: ticketId },
       include: { journey: true, originStop: true, passengerJourney: true },
