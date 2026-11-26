@@ -74,4 +74,40 @@ describe("HTTP API boundary", () => {
     await expect(handle({ method: "GET", url: "/api/does-not-exist" }))
       .resolves.toMatchObject({ status: 404 });
   });
+
+  it("maps an operator authorization failure to 403", async () => {
+    const { handle } = makeHandler({
+      user: { findUnique: vi.fn().mockResolvedValue(null) },
+    }, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+
+    const result = await handle({
+      method: "GET",
+      url: "/api/operator/journeys/11111111-1111-4111-8111-111111111111/dashboard",
+    });
+    expect(result.status).toBe(403);
+    expect(result.body).toMatchObject({ error: { code: "OPERATOR_REQUIRED" } });
+  });
+
+  it("maps an operator journey state conflict to 409", async () => {
+    const { handle } = makeHandler({
+      user: {
+        findUnique: vi.fn().mockResolvedValue({
+          id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+          role: "OPERATOR",
+          status: "ACTIVE",
+        }),
+      },
+      journey: {
+        findFirst: vi.fn(),
+        findUnique: vi.fn().mockResolvedValue(null),
+      },
+    }, "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa");
+
+    const result = await handle({
+      method: "GET",
+      url: "/api/operator/journeys/11111111-1111-4111-8111-111111111111/dashboard",
+    });
+    expect(result.status).toBe(409);
+    expect(result.body).toMatchObject({ error: { code: "JOURNEY_NOT_OPEN" } });
+  });
 });
