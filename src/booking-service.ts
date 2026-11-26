@@ -12,10 +12,11 @@ const ACTIVE_TICKET_STATUSES: TicketStatus[] = ["CONFIRMED", "CHECKED_IN", "BOAR
 function ticketNumber(): string {
   return `RRP-${Date.now().toString(36).toUpperCase()}-${randomBytes(3).toString("hex").toUpperCase()}`;
 }
-function assertIdempotentPayload(existing: { userId: string; journeyId: string; originStopId: string; destinationStopId: string; pricePaid: bigint }, input: PurchaseTicketInput) {
+function assertIdempotentPayload(existing: { userId: string; journeyId: string; originStopId: string; destinationStopId: string; pricePaid: bigint; seatReservations: Array<{ seat: { seatNumber: string } }> }, input: PurchaseTicketInput) {
   if (existing.userId !== input.userId || existing.journeyId !== input.journeyId ||
       existing.originStopId !== input.originStopId || existing.destinationStopId !== input.destinationStopId ||
-      existing.pricePaid !== input.expectedPrice) {
+      existing.pricePaid !== input.expectedPrice || existing.seatReservations.length !== 1 ||
+      existing.seatReservations[0]?.seat.seatNumber !== input.seatNumber) {
     throw new BookingError("IDEMPOTENCY_CONFLICT", "This idempotency key was already used for a different booking request.");
   }
 }
@@ -69,7 +70,10 @@ export async function purchaseTicket(db: Db, input: PurchaseTicketInput) {
   if (!input.idempotencyKey || input.idempotencyKey.length > 140) throw new RangeError("Invalid idempotency key");
   try {
     return await withSerializableRetry(db, async (tx) => {
-      const prior = await tx.ticket.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
+      const prior = await tx.ticket.findUnique({
+        where: { idempotencyKey: input.idempotencyKey },
+        include: { seatReservations: { include: { seat: { select: { seatNumber: true } } } } },
+      });
       if (prior) {
         assertIdempotentPayload(prior, input);
         return { ticket: prior, replayed: true };
@@ -132,7 +136,10 @@ export async function purchaseTicket(db: Db, input: PurchaseTicketInput) {
   } catch (error) {
     if (isSeatConflict(error)) throw new BookingError("SEAT_UNAVAILABLE", "That seat was just booked for an overlapping part of the route. Choose another seat.");
     if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
-      const prior = await db.ticket.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
+      const prior = await db.ticket.findUnique({
+        where: { idempotencyKey: input.idempotencyKey },
+        include: { seatReservations: { include: { seat: { select: { seatNumber: true } } } } },
+      });
       if (prior) { assertIdempotentPayload(prior, input); return { ticket: prior, replayed: true }; }
       throw new BookingError("ACTIVE_TICKET_EXISTS", "An active ticket already exists for this journey.");
     }
