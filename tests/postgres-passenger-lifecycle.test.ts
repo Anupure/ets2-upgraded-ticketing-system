@@ -105,6 +105,12 @@ integration("PostgreSQL passenger lifecycle", () => {
     expect(noShowState.seatReservations[0]?.status).toBe(SeatReservationStatus.RELEASED);
 
     await arriveAtStop(prisma, operator.id, journey.id, middle.id);
+    await openBoardingAtStop(prisma, operator.id, journey.id, middle.id);
+    await expect(departStop(prisma, operator.id, journey.id, middle.id))
+      .rejects.toMatchObject({ code: "BOARDING_NOT_ALLOWED" });
+    // The journey must remain at the stop so the passenger can still disembark.
+    expect((await prisma.journey.findUniqueOrThrow({ where: { id: journey.id } })).currentStopSequence)
+      .toBe(middle.sequence);
     await disembarkPassenger(prisma, operator.id, first.ticket.id);
     const firstState = await prisma.ticket.findUniqueOrThrow({
       where: { id: first.ticket.id }, include: { seatReservations: true, passengerJourney: true },
