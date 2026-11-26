@@ -4,7 +4,7 @@ import {
   PassengerJourneyStatus, BoardingEventType, WalletTransactionType, UserStatus, UserRole,
 } from "@prisma/client";
 import { BookingError, isSeatConflict } from "./errors.js";
-import { withSerializableRetry } from "./transaction.js";
+import { lockJourneyMutationShared, withSerializableRetry } from "./transaction.js";
 
 export type Db = PrismaClient;
 const ACTIVE_TICKET_STATUSES: TicketStatus[] = ["CONFIRMED", "CHECKED_IN", "BOARDED"];
@@ -76,6 +76,7 @@ export async function purchaseTicket(db: Db, input: PurchaseTicketInput) {
       }
 
       // Serialize purchases for this journey so status/price cannot change mid-purchase.
+      await lockJourneyMutationShared(tx);
       const locked = await tx.$queryRaw<Array<{ id: string }>>`
         SELECT id FROM journeys WHERE id = ${input.journeyId}::uuid FOR UPDATE
       `;
@@ -144,6 +145,8 @@ export async function checkIn(db: Db, userId: string, ticketId: string) {
   return withSerializableRetry(db, async (tx) => {
     const reference = await tx.ticket.findFirst({ where: { id: ticketId, userId }, select: { journeyId: true } });
     if (!reference) throw new BookingError("TICKET_NOT_FOUND", "Ticket not found for this account.");
+    await lockJourneyMutationShared(tx);
+    await lockJourneyMutationShared(tx);
     await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM journeys WHERE id = ${reference.journeyId}::uuid FOR UPDATE`;
     const ticket = await tx.ticket.findFirst({ where: { id: ticketId, userId }, include: { journey: true, originStop: true, passengerJourney: true } });
     if (!ticket) throw new BookingError("TICKET_NOT_FOUND", "Ticket not found for this account.");
