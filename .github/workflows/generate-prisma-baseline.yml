@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - fix/lifecycle-concurrency-migrations
+  pull_request:
+    branches:
+      - feat/booking-lifecycle-hardening
 
 jobs:
   generate:
