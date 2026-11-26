@@ -1,5 +1,5 @@
 import {
-  Prisma, PrismaClient, JourneyStatus, StopStatus, UserRole, UserStatus,
+  Prisma, PrismaClient, JourneyStatus, TicketStatus, StopStatus, UserRole, UserStatus,
 } from "@prisma/client";
 import { BookingError } from "./errors.js";
 
@@ -182,5 +182,55 @@ export async function departStop(db: Db, operatorId: string, journeyId: string, 
       nextStop: nextStop ?? null,
       alreadyDeparted: false,
     };
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+}
+
+
+/**
+ * Complete the journey after arrival at its final stop and after every
+ * passenger ticket has reached a terminal state. The coach does not need
+ * to open another boarding window or depart the destination.
+ */
+export async function completeJourneyAtFinalStop(db: Db, operatorId: string, journeyId: string) {
+  return db.$transaction(async (tx) => {
+    await requireOperator(tx, operatorId);
+    await lockJourney(tx, journeyId);
+    const journey = await tx.journey.findUnique({
+      where: { id: journeyId }, include: { stops: { orderBy: { sequence: "asc" } } },
+    });
+    if (!journey) throw new BookingError("JOURNEY_NOT_OPEN", "Journey not found.");
+    if (journey.status === JourneyStatus.COMPLETED) {
+      return { journey, alreadyCompleted: true };
+    }
+
+    const finalStop = journey.stops[journey.stops.length - 1];
+    if (!finalStop || journey.status !== JourneyStatus.PAUSED ||
+        journey.currentStopSequence !== finalStop.sequence ||
+        finalStop.status !== StopStatus.ARRIVED) {
+      throw new BookingError("BOARDING_NOT_ALLOWED", "A journey can be completed only after arrival at its final stop.");
+    }
+
+    const unresolvedTickets = await tx.ticket.count({
+      where: {
+        journeyId,
+        status: { in: [TicketStatus.CONFIRMED, TicketStatus.CHECKED_IN, TicketStatus.BOARDED] },
+      },
+    });
+    if (unresolvedTickets > 0) {
+      throw new BookingError("BOARDING_NOT_ALLOWED", "Resolve all remaining passenger tickets before completing the journey.");
+    }
+
+    const now = new Date();
+    const updated = await tx.journey.update({
+      where: { id: journeyId },
+      data: { status: JourneyStatus.COMPLETED, completedAt: now },
+    });
+    await tx.journeyEvent.create({
+      data: {
+        journeyId, actorId: operatorId, eventType: "journey.completed",
+        payload: { finalStopId: finalStop.id, stopSequence: finalStop.sequence },
+      },
+    });
+    return { journey: updated, alreadyCompleted: false };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
