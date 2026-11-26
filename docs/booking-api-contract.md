@@ -48,7 +48,7 @@ Header: `Idempotency-Key: <client-generated UUID retained across retries>`.
 Server flow:
 
 1. Authenticate and derive `userId` from the session.
-2. Validate the body with Zod and reject unknown fields.
+2. Validate the body and reject unknown fields (the current dispatcher uses explicit runtime checks; it does not use Zod).
 3. Fetch the journey's `ticketPrice` from PostgreSQL.
 4. Call `purchaseTicket` with that server-fetched price as `expectedPrice`.
 5. Return a safe ticket summary. Never return ledger internals or private credentials.
