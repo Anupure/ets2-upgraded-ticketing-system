@@ -32,8 +32,34 @@ async function recordStopEvent(
 }
 
 /**
+ * Close ticket sales and lock the journey before the operator starts the route.
+ * PAUSED with no current stop is the explicit pre-departure/booking-closed state.
+ */
+export async function closeBooking(db: Db, operatorId: string, journeyId: string) {
+  return db.$transaction(async (tx) => {
+    await requireOperator(tx, operatorId);
+    await lockJourney(tx, journeyId);
+    const journey = await tx.journey.findUnique({ where: { id: journeyId } });
+    if (!journey) throw new BookingError("JOURNEY_NOT_OPEN", "Journey not found.");
+    if (journey.status === JourneyStatus.PAUSED && journey.currentStopSequence === null) {
+      return { journey, alreadyClosed: true };
+    }
+    if (journey.status !== JourneyStatus.BOOKING_OPEN || journey.currentStopSequence !== null) {
+      throw new BookingError("BOARDING_NOT_ALLOWED", "Only an open-booking journey that has not started can be closed.");
+    }
+    const updated = await tx.journey.update({
+      where: { id: journeyId }, data: { status: JourneyStatus.PAUSED },
+    });
+    await tx.journeyEvent.create({
+      data: { journeyId, actorId: operatorId, eventType: "journey.booking_closed", payload: {} },
+    });
+    return { journey: updated, alreadyClosed: false };
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+}
+
+/**
  * Mark arrival at the current stop. For the first stop, a journey must have
- * ticket sales closed (BOOKING_OPEN); later arrivals require IN_PROGRESS.
+ * ticket sales closed (PAUSED with no current stop); later arrivals require IN_PROGRESS.
  */
 export async function arriveAtStop(db: Db, operatorId: string, journeyId: string, stopId: string) {
   return db.$transaction(async (tx) => {
@@ -49,7 +75,7 @@ export async function arriveAtStop(db: Db, operatorId: string, journeyId: string
       return { journey, stop, alreadyArrived: true };
     }
     const firstStop = journey.stops[0];
-    const isFirstArrival = journey.status === JourneyStatus.BOOKING_OPEN &&
+    const isFirstArrival = journey.status === JourneyStatus.PAUSED &&
       journey.currentStopSequence === null && firstStop?.id === stopId &&
       stop.status === StopStatus.UPCOMING;
     const isNextArrival = journey.status === JourneyStatus.IN_PROGRESS &&
