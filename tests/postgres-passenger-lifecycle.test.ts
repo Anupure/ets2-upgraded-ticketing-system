@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import {
   PrismaClient, JourneyStatus, TicketStatus, SeatReservationStatus,
   UserRole, UserStatus, StopStatus, PassengerJourneyStatus,
@@ -17,7 +18,7 @@ integration("PostgreSQL passenger lifecycle", () => {
   afterAll(async () => { await prisma.$disconnect(); });
 
   it("purchases, boards, releases and reuses a seat across adjacent segments; finalizes a no-show", async () => {
-    const suffix = crypto.randomUUID().replaceAll("-", "").slice(0, 12);
+    const suffix = randomUUID().replaceAll("-", "").slice(0, 12);
     const operator = await prisma.user.create({ data: {
       username: `op_${suffix}`, displayName: "CI Operator", role: UserRole.OPERATOR, status: UserStatus.ACTIVE,
     } });
@@ -49,9 +50,12 @@ integration("PostgreSQL passenger lifecycle", () => {
         { sequence: 3, name: "Destination" },
       ] },
     } });
-    const [origin, middle, destination] = await prisma.journeyStop.findMany({
+    const stops = await prisma.journeyStop.findMany({
       where: { journeyId: journey.id }, orderBy: { sequence: "asc" },
     });
+    const origin = stops[0]!;
+    const middle = stops[1]!;
+    const destination = stops[2]!;
 
     for (const user of [firstPassenger, secondPassenger, noShowPassenger, overlappingPassenger]) {
       await provisionWallet(prisma, user.id, 1_000n);
