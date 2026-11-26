@@ -14,6 +14,8 @@ This repository currently contains a Prisma 6 / TypeScript service package, not 
 - `arriveAtStop(db, operatorId, journeyId, stopId)` — mark the first or next stop arrived.
 - `openBoardingAtStop(db, operatorId, journeyId, stopId)` — open check-in and operator boarding at the current stop.
 - `departStop(db, operatorId, journeyId, stopId)` — close boarding and depart, or complete at the final stop.
+- `getOperatorDashboard(db, operatorId, journeyId)` — operator-only journey, bus, stop and ticket-status overview.
+- `getPassengerManifest(db, operatorId, journeyId, stopId)` — operator-only stop manifest with passenger identity, ticket state and seat assignment.
 
 ## Required HTTP boundary
 
@@ -67,6 +69,14 @@ Require an active `OPERATOR` or `ADMIN` session and call `disembarkPassenger`. T
 
 Require an active `OPERATOR` or `ADMIN` session and call `markNoShow`. The coach must have departed the booked origin (`JourneyStop.status = DEPARTED`) and still be at that stop in the journey sequence. The operation handles both `CONFIRMED` and `CHECKED_IN` tickets that were not physically boarded, releases the confirmed seat, and records a no-show event. Do not infer absence from elapsed time alone.
 
+### `GET /api/operator/journeys/:journeyId/dashboard`
+
+Require an active `OPERATOR` or `ADMIN` session and call `getOperatorDashboard`. Returns journey status, ordered stops, bus capacity and ticket counts by status. BigInt values are serialized as strings. Does not return email, wallet data or ticket credentials.
+
+### `GET /api/operator/journeys/:journeyId/stops/:stopId/manifest`
+
+Require an active `OPERATOR` or `ADMIN` session and call `getPassengerManifest`. Returns passengers whose ticket segment includes the selected stop, their display name/avatar, ticket and passenger state, and seat number when a reservation covers the stop. Do not expose private ticket credentials or account data.
+
 ### Operator journey stop controls
 
 - `POST /api/operator/journeys/:journeyId/stops/:stopId/arrive` calls `arriveAtStop`. The first arrival is allowed only after booking is closed; subsequent arrivals must be the next stop after departure.
@@ -83,7 +93,7 @@ Return `balance` as a decimal string because Prisma `BigInt` cannot be serialize
 
 - The PostgreSQL exclusion constraint `seat_reservations_no_overlap` is required for concurrent segment allocation.
 - The partial unique index currently permits one active ticket per passenger per journey. That is an MVP rule, not an unavoidable product rule.
-- Operator boarding, destination disembarkation, no-show finalization, seat release and stop arrival/boarding/departure controls are implemented as transactional services. HTTP routes, frontend and realtime delivery are still not implemented.
+- Operator boarding, destination disembarkation, no-show finalization, seat release and stop arrival/boarding/departure controls are implemented as transactional services. Operator dashboard overview and stop-wise manifest read services are implemented. HTTP routes, frontend and realtime delivery are still not implemented.
 - The booking API routes, Auth.js configuration, Next.js UI and realtime transport are not present in the current repo; do not pretend they are already implemented.
 - Publish realtime events only after a transaction commits. Prefer a transactional outbox before introducing Socket.IO broadcasts.
 - Retry PostgreSQL serialization failures (SQLSTATE `40001`) with a small bounded retry while preserving the same idempotency key.
