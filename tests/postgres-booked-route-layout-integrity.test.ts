@@ -5,6 +5,17 @@ import { describe, expect, it } from "vitest";
 const prisma = new PrismaClient();
 const integration = process.env.DATABASE_URL ? describe : describe.skip;
 
+async function waitForJourneyExclusiveLock(timeoutMs = 5000): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const rows = await prisma.$queryRawUnsafe(
+      "SELECT EXISTS (SELECT 1 FROM pg_locks WHERE locktype = 'relation' AND relation = 'journeys'::regclass AND mode = 'ExclusiveLock' AND NOT granted) AS waiting"
+    ) as Array<{ waiting: boolean }>;
+    if (rows[0]?.waiting) return;
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  }
+  throw new Error("Structural edit did not wait for the journey table lock");
+}
 integration("booked route and bus layout integrity", () => {
   it("freezes structural edits after ticketing but permits stop metadata corrections", async () => {
     const suffix = randomUUID().replaceAll("-", "").slice(0, 12);
@@ -223,12 +234,72 @@ integration("booked route and bus layout integrity", () => {
         data: { seatNumber: "1B" },
       });
 
-      // Give the competing statement time to reach its BEFORE STATEMENT lock.
-      await new Promise((resolve) => setTimeout(resolve, 150));
-      releaseBooking();
+      let lockWaitError: unknown;
+      try {
+        // Observe the ungranted EXCLUSIVE relation lock rather than relying on a sleep.
+        await waitForJourneyExclusiveLock();
+      } catch (error) {
+        lockWaitError = error;
+      } finally {
+        releaseBooking();
+      }
 
       await expect(booking).resolves.toMatchObject({ journeyId: journey.id });
+      expect(lockWaitError).toBeUndefined();
       await expect(seatEdit).rejects.toThrow(/seats cannot be structurally changed/);
+    } finally {
+      if (journeyId) {
+        await prisma.seatReservation.deleteMany({ where: { journeyId } });
+        await prisma.ticket.deleteMany({ where: { journeyId } });
+        await prisma.journeyStop.deleteMany({ where: { journeyId } });
+        await prisma.journey.deleteMany({ where: { id: journeyId } });
+      }
+      if (layoutId) await prisma.busLayout.deleteMany({ where: { id: layoutId } });
+      if (userId) await prisma.user.deleteMany({ where: { id: userId } });
+    }
+  });
+
+  it("serializes a stop-sequence edit behind a booking without deadlocking", async () => {
+    const suffix = randomUUID().replaceAll("-", "").slice(0, 12);
+    let userId: string | undefined;
+    let journeyId: string | undefined;
+    let layoutId: string | undefined;
+    try {
+      const user = await prisma.user.create({ data: { username: `stop_race_${suffix}`, displayName: "Stop Race Test Passenger" } });
+      userId = user.id;
+      const layout = await prisma.busLayout.create({
+        data: { name: `Stop Race Coach ${suffix}`, capacity: 1, seats: { create: [{ seatNumber: "1A", rowNumber: 1, columnNumber: 1 }] } },
+        include: { seats: true },
+      });
+      layoutId = layout.id;
+      const journey = await prisma.journey.create({
+        data: { name: `Stop Race Journey ${suffix}`, busLayoutId: layout.id, createdBy: user.id, status: JourneyStatus.DRAFT, stops: { create: [{ sequence: 1, name: "Origin" }, { sequence: 2, name: "Destination" }] } },
+        include: { stops: { orderBy: { sequence: "asc" } } },
+      });
+      journeyId = journey.id;
+      const [origin, destination] = journey.stops;
+      if (!origin || !destination) throw new Error("Test journey stops were not created");
+      let signalJourneyLocked!: () => void;
+      let releaseBooking!: () => void;
+      const journeyLocked = new Promise<void>((resolve) => { signalJourneyLocked = resolve; });
+      const bookingMayContinue = new Promise<void>((resolve) => { releaseBooking = resolve; });
+      const booking = prisma.$transaction(async (tx) => {
+        await tx.$queryRawUnsafe("SELECT id FROM journeys WHERE id = $1::uuid FOR UPDATE", journey.id);
+        signalJourneyLocked();
+        await bookingMayContinue;
+        const ticket = await tx.ticket.create({ data: { ticketNumber: `STOP-RACE-${suffix}`, idempotencyKey: `stop-race-ticket-${suffix}`, journeyId: journey.id, userId: user.id, originStopId: origin.id, destinationStopId: destination.id, pricePaid: 100n } });
+        await tx.seatReservation.create({ data: { ticketId: ticket.id, journeyId: journey.id, seatId: layout.seats[0]!.id, fromSequence: 1, toSequence: 2, reservedUntil: new Date(Date.now() + 60_000) } });
+        return ticket;
+      }, { timeout: 15000 });
+      await journeyLocked;
+      const stopEdit = prisma.journeyStop.update({ where: { id: destination.id }, data: { sequence: 3 } });
+      let lockWaitError: unknown;
+      try { await waitForJourneyExclusiveLock(); }
+      catch (error) { lockWaitError = error; }
+      finally { releaseBooking(); }
+      await expect(booking).resolves.toMatchObject({ journeyId: journey.id });
+      expect(lockWaitError).toBeUndefined();
+      await expect(stopEdit).rejects.toThrow(/structurally changed after tickets exist/);
     } finally {
       if (journeyId) {
         await prisma.seatReservation.deleteMany({ where: { journeyId } });
