@@ -102,7 +102,7 @@ integration("PostgreSQL passenger lifecycle", () => {
     });
     expect(noShowState.status).toBe(TicketStatus.NO_SHOW);
     expect(noShowState.passengerJourney?.status).toBe(PassengerJourneyStatus.NO_SHOW);
-    expect(noShowState.seatReservations[0].status).toBe(SeatReservationStatus.RELEASED);
+    expect(noShowState.seatReservations[0]?.status).toBe(SeatReservationStatus.RELEASED);
 
     await arriveAtStop(prisma, operator.id, journey.id, middle.id);
     await disembarkPassenger(prisma, operator.id, first.ticket.id);
@@ -111,7 +111,7 @@ integration("PostgreSQL passenger lifecycle", () => {
     });
     expect(firstState.status).toBe(TicketStatus.COMPLETED);
     expect(firstState.passengerJourney?.status).toBe(PassengerJourneyStatus.COMPLETED);
-    expect(firstState.seatReservations[0].status).toBe(SeatReservationStatus.RELEASED);
+    expect(firstState.seatReservations[0]?.status).toBe(SeatReservationStatus.RELEASED);
 
     await openBoardingAtStop(prisma, operator.id, journey.id, middle.id);
     await checkIn(prisma, secondPassenger.id, second.ticket.id);
@@ -130,7 +130,7 @@ integration("PostgreSQL passenger lifecycle", () => {
       where: { id: second.ticket.id }, include: { seatReservations: true },
     });
     expect(finalSecond.status).toBe(TicketStatus.COMPLETED);
-    expect(finalSecond.seatReservations[0].status).toBe(SeatReservationStatus.RELEASED);
+    expect(finalSecond.seatReservations[0]?.status).toBe(SeatReservationStatus.RELEASED);
     expect((await prisma.journeyStop.findUniqueOrThrow({ where: { id: origin.id } })).status).toBe(StopStatus.DEPARTED);
   });
 });
