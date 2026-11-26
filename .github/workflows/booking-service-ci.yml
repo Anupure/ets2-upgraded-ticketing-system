@@ -39,7 +39,7 @@ jobs:
           node-version: 22
 
       - name: Install root dependencies
-        run: npm install
+        run: npm ci
 
       - name: Generate Prisma client
         run: npx prisma generate --schema roguerpm-db/prisma/schema.prisma
