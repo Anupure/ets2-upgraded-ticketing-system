@@ -7,7 +7,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import {
   provisionWallet, purchaseTicket, checkIn, confirmBoarding, getSeatMap,
 } from "../src/booking-service.js";
-import { closeBooking, arriveAtStop, openBoardingAtStop, departStop } from "../src/journey-stop-service.js";
+import { closeBooking, arriveAtStop, openBoardingAtStop, departStop, completeJourneyAtFinalStop } from "../src/journey-stop-service.js";
 import { disembarkPassenger, markNoShow } from "../src/passenger-lifecycle-service.js";
 
 const prisma = new PrismaClient();
@@ -122,9 +122,9 @@ integration("PostgreSQL passenger lifecycle", () => {
     await departStop(prisma, operator.id, journey.id, middle.id);
     await arriveAtStop(prisma, operator.id, journey.id, destination.id);
     await disembarkPassenger(prisma, operator.id, second.ticket.id);
-    await openBoardingAtStop(prisma, operator.id, journey.id, destination.id);
-    const completed = await departStop(prisma, operator.id, journey.id, destination.id);
+    const completed = await completeJourneyAtFinalStop(prisma, operator.id, journey.id);
     expect(completed.journey.status).toBe(JourneyStatus.COMPLETED);
+    expect(completed.alreadyCompleted).toBe(false);
 
     const finalSecond = await prisma.ticket.findUniqueOrThrow({
       where: { id: second.ticket.id }, include: { seatReservations: true },
