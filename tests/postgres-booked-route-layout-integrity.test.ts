@@ -5,16 +5,16 @@ import { describe, expect, it } from "vitest";
 const prisma = new PrismaClient();
 const integration = process.env.DATABASE_URL ? describe : describe.skip;
 
-async function waitForJourneyExclusiveLock(timeoutMs = 5000): Promise<void> {
+async function waitForJourneyRowLock(timeoutMs = 5000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const rows = await prisma.$queryRawUnsafe(
-      "SELECT EXISTS (SELECT 1 FROM pg_locks WHERE locktype = 'relation' AND relation = 'journeys'::regclass AND mode = 'ExclusiveLock' AND NOT granted) AS waiting"
+      "SELECT EXISTS (SELECT 1 FROM pg_locks l JOIN pg_stat_activity a ON a.pid = l.pid WHERE l.locktype = 'transactionid' AND NOT l.granted AND a.query ILIKE '%FROM journeys%' AND a.query ILIKE '%FOR UPDATE%') AS waiting"
     ) as Array<{ waiting: boolean }>;
     if (rows[0]?.waiting) return;
     await new Promise((resolve) => setTimeout(resolve, 25));
   }
-  throw new Error("Structural edit did not wait for the journey table lock");
+  throw new Error("Structural edit did not wait for the journey row lock");
 }
 integration("booked route and bus layout integrity", () => {
   it("freezes structural edits after ticketing but permits stop metadata corrections", async () => {
@@ -239,8 +239,8 @@ integration("booked route and bus layout integrity", () => {
 
       let lockWaitError: unknown;
       try {
-        // Observe the ungranted EXCLUSIVE relation lock rather than relying on a sleep.
-        await waitForJourneyExclusiveLock();
+        // Observe the blocked FOR UPDATE row-lock request rather than relying on a sleep.
+        await waitForJourneyRowLock();
       } catch (error) {
         lockWaitError = error;
       } finally {
@@ -303,7 +303,7 @@ integration("booked route and bus layout integrity", () => {
         (error: unknown) => ({ fulfilled: false as const, error }),
       );
       let lockWaitError: unknown;
-      try { await waitForJourneyExclusiveLock(); }
+      try { await waitForJourneyRowLock(); }
       catch (error) { lockWaitError = error; }
       finally { releaseBooking(); }
       await expect(booking).resolves.toMatchObject({ journeyId: journey.id });
