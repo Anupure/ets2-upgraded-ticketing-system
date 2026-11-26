@@ -48,7 +48,9 @@ integration("booked route and bus layout integrity", () => {
           name: `Integrity Journey ${suffix}`,
           busLayoutId: layout.id,
           createdBy: user.id,
-          status: JourneyStatus.BOOKING_OPEN,
+          // The database permits only one operational journey globally; this
+          // integrity test only needs a journey with ticket history.
+          status: JourneyStatus.DRAFT,
           stops: {
             create: [
               { sequence: 1, name: "Origin" },
