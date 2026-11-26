@@ -232,7 +232,10 @@ integration("booked route and bus layout integrity", () => {
       const seatEdit = prisma.busSeat.update({
         where: { id: layout.seats[0]!.id },
         data: { seatNumber: "1B" },
-      });
+      }).then(
+        (value) => ({ fulfilled: true as const, value }),
+        (error: unknown) => ({ fulfilled: false as const, error }),
+      );
 
       let lockWaitError: unknown;
       try {
@@ -246,7 +249,10 @@ integration("booked route and bus layout integrity", () => {
 
       await expect(booking).resolves.toMatchObject({ journeyId: journey.id });
       expect(lockWaitError).toBeUndefined();
-      await expect(seatEdit).rejects.toThrow(/seats cannot be structurally changed/);
+      const seatEditOutcome = await seatEdit;
+      expect(seatEditOutcome.fulfilled).toBe(false);
+      if (seatEditOutcome.fulfilled) throw new Error("Seat edit unexpectedly succeeded");
+      expect(String(seatEditOutcome.error)).toMatch(/seats cannot be structurally changed/);
     } finally {
       if (journeyId) {
         await prisma.seatReservation.deleteMany({ where: { journeyId } });
@@ -292,14 +298,20 @@ integration("booked route and bus layout integrity", () => {
         return ticket;
       }, { timeout: 15000 });
       await journeyLocked;
-      const stopEdit = prisma.journeyStop.update({ where: { id: destination.id }, data: { sequence: 3 } });
+      const stopEdit = prisma.journeyStop.update({ where: { id: destination.id }, data: { sequence: 3 } }).then(
+        (value) => ({ fulfilled: true as const, value }),
+        (error: unknown) => ({ fulfilled: false as const, error }),
+      );
       let lockWaitError: unknown;
       try { await waitForJourneyExclusiveLock(); }
       catch (error) { lockWaitError = error; }
       finally { releaseBooking(); }
       await expect(booking).resolves.toMatchObject({ journeyId: journey.id });
       expect(lockWaitError).toBeUndefined();
-      await expect(stopEdit).rejects.toThrow(/structurally changed after tickets exist/);
+      const stopEditOutcome = await stopEdit;
+      expect(stopEditOutcome.fulfilled).toBe(false);
+      if (stopEditOutcome.fulfilled) throw new Error("Stop edit unexpectedly succeeded");
+      expect(String(stopEditOutcome.error)).toMatch(/structurally changed after tickets exist/);
     } finally {
       if (journeyId) {
         await prisma.seatReservation.deleteMany({ where: { journeyId } });
