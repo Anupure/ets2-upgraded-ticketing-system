@@ -242,7 +242,7 @@ integration("booked route and bus layout integrity", () => {
       const bookingMayContinue = new Promise<void>((resolve) => { releaseBooking = resolve; });
 
       const booking = prisma.$transaction(async (tx) => {
-        await tx.$queryRaw`SELECT pg_advisory_xact_lock_shared(742, 20261127)`;
+        await tx.$queryRaw`SELECT acquire_journey_mutation_shared_lock()`;
         await tx.$queryRaw`SELECT id FROM journeys WHERE id = ${journey.id}::uuid FOR UPDATE`;
         signalJourneyLocked();
         await bookingMayContinue;
@@ -336,7 +336,7 @@ integration("booked route and bus layout integrity", () => {
       const journeyLocked = new Promise<void>((resolve) => { signalJourneyLocked = resolve; });
       const bookingMayContinue = new Promise<void>((resolve) => { releaseBooking = resolve; });
       const booking = prisma.$transaction(async (tx) => {
-        await tx.$queryRaw`SELECT pg_advisory_xact_lock_shared(742, 20261127)`;
+        await tx.$queryRaw`SELECT acquire_journey_mutation_shared_lock()`;
         await tx.$queryRawUnsafe("SELECT id FROM journeys WHERE id = $1::uuid FOR UPDATE", journey.id);
         signalJourneyLocked();
         await bookingMayContinue;
