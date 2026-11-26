@@ -59,3 +59,21 @@ button{font:inherit}
 .booking-submit{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:24px;padding-top:18px;border-top:1px solid var(--line)}
 .booking-submit p{font-size:12px;color:var(--muted)}.booking-message{padding:12px;border:1px solid #49672c;border-radius:8px;background:#17220f;color:#d8f5b2;font-size:12px;line-height:1.6}.booking-disclaimer{font-size:10px;line-height:1.6;color:#8291a5;margin:16px 0 0}
 @media(max-width:760px){.journey-layout{grid-template-columns:1fr;gap:28px}.booking-panel{padding:16px}.booking-controls{grid-template-columns:1fr}.booking-submit{align-items:stretch;flex-direction:column}.booking-submit .button{width:100%}.seat-grid{grid-template-columns:repeat(5,minmax(0,1fr))}.seat-button{min-height:46px}.journey-facts{gap:8px}.journey-facts span{flex:1;min-width:calc(33% - 8px);padding:12px}}
+
+.operator-create-action{display:flex;justify-content:flex-end;margin:24px 0}
+.create-journey-form{max-width:760px;margin:28px 0 70px;padding:24px;border:1px solid var(--line);border-radius:16px;background:var(--panel);display:grid;gap:20px}
+.create-journey-form label{display:grid;gap:8px;color:var(--muted);font-size:12px}
+.create-journey-form input,.create-journey-form textarea{width:100%;min-height:46px;padding:12px;border:1px solid #34445a;border-radius:8px;background:#0e1723;color:var(--text);font:inherit;font-size:14px}
+.create-journey-form textarea{resize:vertical;min-height:90px}
+.create-form-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.create-stops-heading{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.create-stops-heading h2{font-size:18px;margin:0 0 5px}.create-stops-heading>span{font:11px 'DM Mono',monospace;color:var(--accent)}
+.create-stops-list{display:grid;gap:10px}
+.create-stop-row{display:grid;grid-template-columns:34px minmax(0,1fr) auto;gap:9px;align-items:center}
+.create-stop-index{font:11px 'DM Mono',monospace;color:var(--accent)}
+.create-stop-row input{min-width:0}
+.add-stop-button{justify-self:start}
+.create-form-footer{display:flex;align-items:center;justify-content:space-between;gap:18px;padding-top:18px;border-top:1px solid var(--line)}
+.create-form-footer p{max-width:390px;margin:0}
+.form-error{padding:12px;border:1px solid #8c4545;border-radius:8px;background:#321a1a;color:#ffd0d0;font-size:12px}
+@media(max-width:620px){.create-journey-form{padding:17px}.create-form-grid{grid-template-columns:1fr}.create-form-footer{align-items:stretch;flex-direction:column}.create-form-footer .button{width:100%}.create-stop-row{grid-template-columns:26px minmax(0,1fr) auto}.create-stop-row .button{padding:0 5px;font-size:11px}}
