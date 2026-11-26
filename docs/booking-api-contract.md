@@ -63,7 +63,7 @@ Require an active `OPERATOR` or `ADMIN` session, then call `confirmBoarding(db, 
 
 ### `POST /api/operator/tickets/:ticketId/disembark`
 
-Require an active `OPERATOR` or `ADMIN` session and call `disembarkPassenger`. The coach must be at the booked destination and that stop must be marked `ARRIVED`. The transaction completes the ticket and passenger journey, releases the occupied seat, and records the disembarkation event.
+Require an active `OPERATOR` or `ADMIN` session and call `disembarkPassenger`. The coach must be at the booked destination and that stop must be marked `ARRIVED` or `BOARDING_OPEN`. The transaction completes the ticket and passenger journey, releases the occupied seat, and records the disembarkation event.
 
 ### `POST /api/operator/tickets/:ticketId/no-show`
 
@@ -111,7 +111,7 @@ Return `balance` as a decimal string because Prisma `BigInt` cannot be serialize
 9. Boarding atomically changes ticket, passenger and seat reservation states.
 10. Public seat-map payload contains no email, ticket ID, wallet balance, YouTube identity or private credentials.
 11. A ticket that is only `CONFIRMED` or `CHECKED_IN` is not shown as physically occupying a seat.
-12. Disembarkation is accepted only at the booked destination when the stop is `ARRIVED`; ticket, passenger and seat state change atomically.
+12. Disembarkation is accepted only at the booked destination when the stop is `ARRIVED` or `BOARDING_OPEN`; ticket, passenger and seat state change atomically.
 13. No-show is accepted only after the booked origin is `DEPARTED`; both `CONFIRMED` and `CHECKED_IN` unboarded tickets are handled.
 14. Repeating either lifecycle action returns the terminal state without creating duplicate events.
 15. A released seat can be booked for a later non-overlapping route segment.
