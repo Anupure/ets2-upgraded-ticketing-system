@@ -17,7 +17,7 @@ async function requireOperator(tx: Prisma.TransactionClient, operatorId: string)
     where: { id: operatorId }, select: { id: true, role: true, status: true },
   });
   if (!user || user.status !== UserStatus.ACTIVE ||
-      ![UserRole.OPERATOR, UserRole.ADMIN].includes(user.role)) {
+      user.role !== UserRole.OPERATOR && user.role !== UserRole.ADMIN) {
     throw new BookingError("BOARDING_NOT_ALLOWED", "Only an active operator or administrator can control journey stops.");
   }
 }
