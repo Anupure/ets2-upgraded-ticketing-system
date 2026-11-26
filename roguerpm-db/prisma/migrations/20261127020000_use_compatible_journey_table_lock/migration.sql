@@ -1,18 +1,18 @@
--- Use the weakest table lock that preserves the row-lock protocol.
--- The row-level guards below still lock affected journey rows FOR UPDATE,
--- which conflicts with booking transactions' journey row locks.
+-- Structural route/seat edits take an exclusive transaction-scoped advisory lock.
+-- Booking and journey-state transactions take the matching shared lock BEFORE
+-- locking a journey row. Shared locks preserve concurrency between bookings;
+-- an exclusive structural edit waits before it can lock child rows, avoiding
+-- the child-row -> journey-row / journey-row -> child-row deadlock cycle.
 --
--- ROW SHARE is compatible with ROW EXCLUSIVE, which ordinary journey
--- INSERT/UPDATE/DELETE statements acquire. EXCLUSIVE caused deadlocks when
--- concurrent journey creation and route/seat edits each attempted to upgrade
--- their table locks.
+-- Unlike a table-level EXCLUSIVE lock, advisory locks do not conflict with
+-- ordinary INSERT/UPDATE/DELETE table locks during concurrent journey creation.
 
 CREATE OR REPLACE FUNCTION lock_journeys_before_bus_seat_mutation()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 BEGIN
-  LOCK TABLE journeys IN ROW SHARE MODE;
+  PERFORM pg_advisory_xact_lock(742, 20261127);
   RETURN NULL;
 END;
 $$;
@@ -22,7 +22,7 @@ RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 BEGIN
-  LOCK TABLE journeys IN ROW SHARE MODE;
+  PERFORM pg_advisory_xact_lock(742, 20261127);
   RETURN NULL;
 END;
 $$;
