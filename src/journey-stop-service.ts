@@ -142,8 +142,8 @@ export async function departStop(db: Db, operatorId: string, journeyId: string, 
     const updatedJourney = await tx.journey.update({
       where: { id: journeyId },
       data: nextStop
-        ? { status: JourneyStatus.IN_PROGRESS, departureAt: now }
-        : { status: JourneyStatus.COMPLETED, completedAt: now, departureAt: now },
+        ? { status: JourneyStatus.IN_PROGRESS, ...(stop.sequence === journey.stops[0]?.sequence ? { departureAt: now } : {}) }
+        : { status: JourneyStatus.COMPLETED, completedAt: now },
     });
     await recordStopEvent(
       tx, journeyId, operatorId,
