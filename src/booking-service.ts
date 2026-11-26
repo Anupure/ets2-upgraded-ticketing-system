@@ -1,7 +1,7 @@
 import { randomBytes, randomUUID } from "node:crypto";
 import {
   Prisma, PrismaClient, JourneyStatus, TicketStatus, SeatReservationStatus,
-  PassengerJourneyStatus, BoardingEventType, WalletTransactionType, UserStatus,
+  PassengerJourneyStatus, BoardingEventType, WalletTransactionType, UserStatus, UserRole,
 } from "@prisma/client";
 import { BookingError, isSeatConflict } from "./errors.js";
 
@@ -159,27 +159,158 @@ export async function checkIn(db: Db, userId: string, ticketId: string) {
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
 }
 
-/** Sanitized, segment-aware seat map suitable for the passenger site and OBS. */
-export async function getSeatMap(db: Db, journeyId: string, fromSequence?: number, toSequence?: number) {
-  const journey = await db.journey.findUnique({ where: { id: journeyId }, select: { busLayoutId: true } });
-  if (!journey) throw new BookingError("JOURNEY_NOT_OPEN", "Journey not found.");
-  const seats = await db.busSeat.findMany({ where: { busLayoutId: journey.busLayoutId }, orderBy: [{ rowNumber: "asc" }, { columnNumber: "asc" }] });
-  const reservations = await db.seatReservation.findMany({
-    where: { journeyId, status: { in: [SeatReservationStatus.HELD, SeatReservationStatus.CONFIRMED, SeatReservationStatus.OCCUPIED] },
-      ...(fromSequence !== undefined && toSequence !== undefined ? { fromSequence: { lt: toSequence }, toSequence: { gt: fromSequence } } : {}) },
-    include: { ticket: { select: { user: { select: { displayName: true, avatar: { select: { imageUrl: true } } }, }, status: true } } },
-  });
-  const bySeat = new Map(reservations.map(r => [r.seatId, r]));
-  return seats.map(seat => {
-    const reservation = bySeat.get(seat.id);
-    const isHeld = reservation?.status === SeatReservationStatus.HELD;
-    const isOccupied = reservation?.status === SeatReservationStatus.OCCUPIED;
+/**
+ * Operator-confirmed physical boarding. Passenger self-check-in alone never
+ * changes the seat to OCCUPIED; this operation is the authority for that state.
+ */
+export async function confirmBoarding(db: Db, operatorId: string, ticketId: string) {
+  return db.$transaction(async (tx) => {
+    const operator = await tx.user.findUnique({
+      where: { id: operatorId },
+      select: { id: true, role: true, status: true },
+    });
+    if (!operator || operator.status !== UserStatus.ACTIVE ||
+        ![UserRole.OPERATOR, UserRole.ADMIN].includes(operator.role)) {
+      throw new BookingError("BOARDING_NOT_ALLOWED", "Only an active operator or administrator can confirm physical boarding.");
+    }
+
+    const ticket = await tx.ticket.findUnique({
+      where: { id: ticketId },
+      include: { journey: true, originStop: true, passengerJourney: true },
+    });
+    if (!ticket) throw new BookingError("TICKET_NOT_FOUND", "Ticket not found.");
+    if (ticket.status === TicketStatus.BOARDED) return { ticket, alreadyBoarded: true };
+    if (ticket.status !== TicketStatus.CHECKED_IN || ticket.journey.status !== JourneyStatus.BOARDING) {
+      throw new BookingError("BOARDING_NOT_ALLOWED", "The passenger must be checked in while boarding is open.");
+    }
+    const currentSequence = ticket.journey.currentStopSequence;
+    if (currentSequence !== null && currentSequence !== ticket.originStop.sequence) {
+      throw new BookingError("BOARDING_NOT_ALLOWED", "The coach is not boarding at this ticket's origin stop.");
+    }
+
+    const reservation = await tx.seatReservation.findFirst({
+      where: {
+        ticketId: ticket.id,
+        status: SeatReservationStatus.CONFIRMED,
+      },
+      select: { id: true },
+    });
+    if (!reservation) throw new BookingError("SEAT_UNAVAILABLE", "This ticket has no confirmed seat reservation.");
+
+    const changed = await tx.ticket.updateMany({
+      where: { id: ticket.id, status: TicketStatus.CHECKED_IN },
+      data: { status: TicketStatus.BOARDED, boardedAt: new Date() },
+    });
+    if (changed.count !== 1) throw new BookingError("BOARDING_NOT_ALLOWED", "Ticket status changed. Refresh the manifest.");
+
+    const occupied = await tx.seatReservation.updateMany({
+      where: { id: reservation.id, status: SeatReservationStatus.CONFIRMED },
+      data: { status: SeatReservationStatus.OCCUPIED },
+    });
+    if (occupied.count !== 1) throw new BookingError("SEAT_UNAVAILABLE", "Seat reservation is no longer available for boarding.");
+
+    if (ticket.passengerJourney) {
+      await tx.passengerJourney.update({
+        where: { ticketId: ticket.id },
+        data: { status: PassengerJourneyStatus.ONBOARD, actualBoardedAt: new Date() },
+      });
+    }
+    await tx.boardingEvent.create({
+      data: { ticketId: ticket.id, stopId: ticket.originStopId, eventType: BoardingEventType.BOARDED },
+    });
+    await tx.journeyEvent.create({
+      data: {
+        journeyId: ticket.journeyId,
+        actorId: operatorId,
+        eventType: "passenger.boarded",
+        payload: { ticketId: ticket.id, seatReservationId: reservation.id },
+      },
+    });
+
     return {
-      seatNumber: seat.seatNumber, row: seat.rowNumber, column: seat.columnNumber,
-      seatType: seat.seatType, bookable: seat.isBookable,
-      state: !seat.isBookable ? "UNAVAILABLE" : !reservation ? "AVAILABLE" : isHeld ? "HELD" : isOccupied ? "OCCUPIED" : "BOOKED",
-      // Public overlay-safe identity only; never return ticket IDs or codes.
-      passenger: reservation ? { displayName: reservation.ticket.user.displayName, avatarUrl: reservation.ticket.user.avatar?.imageUrl ?? null } : null,
+      ticket: await tx.ticket.findUniqueOrThrow({ where: { id: ticket.id } }),
+      alreadyBoarded: false,
+    };
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+}
+
+/**
+ * Sanitized, segment-aware seat map suitable for booking UI or OBS.
+ * For a live overlay, pass the current leg [currentStopSequence, +1).
+ * Passenger identity is emitted only for a physically OCCUPIED reservation.
+ */
+export async function getSeatMap(db: Db, journeyId: string, fromSequence?: number, toSequence?: number) {
+  if ((fromSequence === undefined) !== (toSequence === undefined)) {
+    throw new RangeError("fromSequence and toSequence must be supplied together");
+  }
+  if (fromSequence !== undefined && toSequence !== undefined &&
+      (!Number.isInteger(fromSequence) || !Number.isInteger(toSequence) || fromSequence < 1 || toSequence <= fromSequence)) {
+    throw new RangeError("Invalid seat-map segment range");
+  }
+
+  const journey = await db.journey.findUnique({
+    where: { id: journeyId },
+    select: { busLayoutId: true, currentStopSequence: true },
+  });
+  if (!journey) throw new BookingError("JOURNEY_NOT_OPEN", "Journey not found.");
+  const seats = await db.busSeat.findMany({
+    where: { busLayoutId: journey.busLayoutId },
+    orderBy: [{ rowNumber: "asc" }, { columnNumber: "asc" }],
+  });
+
+  // A no-argument request defaults to the current leg when the coach has a
+  // current stop. Half-open ranges make a passenger due to disembark at this
+  // stop absent from the next leg's manifest.
+  const effectiveFrom = fromSequence ?? journey.currentStopSequence ?? undefined;
+  const effectiveTo = toSequence ?? (effectiveFrom !== undefined ? effectiveFrom + 1 : undefined);
+  const segmentFilter = effectiveFrom !== undefined && effectiveTo !== undefined
+    ? { fromSequence: { lt: effectiveTo }, toSequence: { gt: effectiveFrom } }
+    : {};
+
+  const reservations = await db.seatReservation.findMany({
+    where: {
+      journeyId,
+      status: { in: [SeatReservationStatus.HELD, SeatReservationStatus.CONFIRMED, SeatReservationStatus.OCCUPIED] },
+      ...segmentFilter,
+    },
+    include: {
+      ticket: {
+        select: {
+          status: true,
+          user: { select: { displayName: true, avatar: { select: { imageUrl: true } } } },
+        },
+      },
+    },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const bySeat = new Map<string, typeof reservations>();
+  for (const reservation of reservations) {
+    const existing = bySeat.get(reservation.seatId) ?? [];
+    existing.push(reservation);
+    bySeat.set(reservation.seatId, existing);
+  }
+
+  return seats.map((seat) => {
+    const matches = bySeat.get(seat.id) ?? [];
+    const occupied = matches.filter((r) => r.status === SeatReservationStatus.OCCUPIED);
+    const held = matches.some((r) => r.status === SeatReservationStatus.HELD);
+    const booked = matches.some((r) => r.status === SeatReservationStatus.CONFIRMED);
+    const occupant = occupied.length === 1 ? occupied[0] : undefined;
+
+    return {
+      seatNumber: seat.seatNumber,
+      row: seat.rowNumber,
+      column: seat.columnNumber,
+      seatType: seat.seatType,
+      bookable: seat.isBookable,
+      state: !seat.isBookable ? "UNAVAILABLE" : occupied.length > 0 ? "OCCUPIED" : held ? "HELD" : booked ? "BOOKED" : "AVAILABLE",
+      // Never expose the identity of someone who has only reserved a seat.
+      // If data is ambiguous (multiple occupied reservations), fail closed.
+      passenger: occupant ? {
+        displayName: occupant.ticket.user.displayName,
+        avatarUrl: occupant.ticket.user.avatar?.imageUrl ?? null,
+      } : null,
     };
   });
 }

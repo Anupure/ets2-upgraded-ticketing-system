@@ -2,7 +2,8 @@ export type BookingErrorCode =
   | "USER_UNAVAILABLE" | "WALLET_NOT_FOUND" | "JOURNEY_NOT_OPEN"
   | "INVALID_SEGMENT" | "SEAT_UNAVAILABLE" | "INSUFFICIENT_TOKENS"
   | "ACTIVE_TICKET_EXISTS" | "TICKET_NOT_FOUND" | "CHECK_IN_CLOSED"
-  | "ALREADY_CHECKED_IN" | "IDEMPOTENCY_CONFLICT";
+  | "ALREADY_CHECKED_IN" | "IDEMPOTENCY_CONFLICT"
+  | "BOARDING_NOT_ALLOWED";
 
 export class BookingError extends Error {
   constructor(public readonly code: BookingErrorCode, message: string) {
