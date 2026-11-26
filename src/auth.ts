@@ -24,16 +24,16 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       const dbUser = await prisma.user.upsert({
         where: { email },
         update: {
-          name: user.name?.slice(0, 120),
-          image: user.image,
+          name: user.name ? user.name.slice(0, 120) : null,
+          image: user.image ?? null,
           emailVerified: new Date(),
         },
         create: {
           email,
-          name: user.name?.slice(0, 120),
+          name: user.name ? user.name.slice(0, 120) : null,
           displayName,
           username: usernameFor(email),
-          image: user.image,
+          image: user.image ?? null,
           emailVerified: new Date(),
           role: "PASSENGER",
           status: "ACTIVE",
