@@ -4,6 +4,7 @@ import {
   PassengerJourneyStatus, BoardingEventType, WalletTransactionType, UserStatus, UserRole,
 } from "@prisma/client";
 import { BookingError, isSeatConflict } from "./errors.js";
+import { withSerializableRetry } from "./transaction.js";
 
 export type Db = PrismaClient;
 const ACTIVE_TICKET_STATUSES: TicketStatus[] = ["CONFIRMED", "CHECKED_IN", "BOARDED"];
@@ -23,7 +24,7 @@ function assertIdempotentPayload(existing: { userId: string; journeyId: string; 
 export async function provisionWallet(db: Db, userId: string, initialTokens = 1_000n) {
   if (initialTokens < 0n) throw new RangeError("initialTokens cannot be negative");
   try {
-    return await db.$transaction(async (tx) => {
+    return await withSerializableRetry(db, async (tx) => {
       const user = await tx.user.findUnique({ where: { id: userId }, select: { id: true, status: true } });
       if (!user || user.status !== UserStatus.ACTIVE) throw new BookingError("USER_UNAVAILABLE", "User is unavailable.");
       const existing = await tx.wallet.findUnique({ where: { userId } });
@@ -67,7 +68,7 @@ export interface PurchaseTicketInput {
 export async function purchaseTicket(db: Db, input: PurchaseTicketInput) {
   if (!input.idempotencyKey || input.idempotencyKey.length > 140) throw new RangeError("Invalid idempotency key");
   try {
-    return await db.$transaction(async (tx) => {
+    return await withSerializableRetry(db, async (tx) => {
       const prior = await tx.ticket.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
       if (prior) {
         assertIdempotentPayload(prior, input);
@@ -140,7 +141,10 @@ export async function purchaseTicket(db: Db, input: PurchaseTicketInput) {
 
 /** Passenger self-check-in. It does not mark the passenger as physically aboard. */
 export async function checkIn(db: Db, userId: string, ticketId: string) {
-  return db.$transaction(async (tx) => {
+  return withSerializableRetry(db, async (tx) => {
+    const reference = await tx.ticket.findFirst({ where: { id: ticketId, userId }, select: { journeyId: true } });
+    if (!reference) throw new BookingError("TICKET_NOT_FOUND", "Ticket not found for this account.");
+    await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM journeys WHERE id = ${reference.journeyId}::uuid FOR UPDATE`;
     const ticket = await tx.ticket.findFirst({ where: { id: ticketId, userId }, include: { journey: true, originStop: true, passengerJourney: true } });
     if (!ticket) throw new BookingError("TICKET_NOT_FOUND", "Ticket not found for this account.");
     if (ticket.status === TicketStatus.CHECKED_IN) return { ticket, alreadyCheckedIn: true };
@@ -164,16 +168,21 @@ export async function checkIn(db: Db, userId: string, ticketId: string) {
  * changes the seat to OCCUPIED; this operation is the authority for that state.
  */
 export async function confirmBoarding(db: Db, operatorId: string, ticketId: string) {
-  return db.$transaction(async (tx) => {
+  return withSerializableRetry(db, async (tx) => {
     const operator = await tx.user.findUnique({
       where: { id: operatorId },
       select: { id: true, role: true, status: true },
     });
     if (!operator || operator.status !== UserStatus.ACTIVE ||
-        ![UserRole.OPERATOR, UserRole.ADMIN].includes(operator.role)) {
+        operator.role !== UserRole.OPERATOR && operator.role !== UserRole.ADMIN) {
       throw new BookingError("BOARDING_NOT_ALLOWED", "Only an active operator or administrator can confirm physical boarding.");
     }
 
+    const reference = await tx.ticket.findUnique({
+      where: { id: ticketId }, select: { journeyId: true },
+    });
+    if (!reference) throw new BookingError("TICKET_NOT_FOUND", "Ticket not found.");
+    await tx.$queryRaw<Array<{ id: string }>>`SELECT id FROM journeys WHERE id = ${reference.journeyId}::uuid FOR UPDATE`;
     const ticket = await tx.ticket.findUnique({
       where: { id: ticketId },
       include: { journey: true, originStop: true, passengerJourney: true },

@@ -1,0 +1,64 @@
+name: Booking service CI
+
+on:
+  push:
+    branches:
+      - master
+      - feat/booking-lifecycle-hardening
+      - fix/lifecycle-concurrency-migrations
+      - fix/neon-integration-test-isolation
+      - fix/booked-route-layout-integrity
+  pull_request:
+    branches:
+      - master
+      - feat/booking-lifecycle-hardening
+      - fix/lifecycle-concurrency-migrations
+      - fix/neon-integration-test-isolation
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: ets2_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d ets2_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ets2_ci?schema=public
+      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/ets2_ci?schema=public
+      PGPASSWORD: postgres
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate --schema roguerpm-db/prisma/schema.prisma
+
+      - name: Validate Prisma schema
+        run: npx prisma validate --schema roguerpm-db/prisma/schema.prisma
+
+      - name: Apply Prisma migrations to clean PostgreSQL database
+        run: npx prisma migrate deploy --schema roguerpm-db/prisma/schema.prisma
+
+      - name: TypeScript typecheck
+        run: npm run typecheck
+
+      - name: Unit and PostgreSQL integration tests
+        run: npm test
