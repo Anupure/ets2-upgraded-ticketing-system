@@ -81,10 +81,14 @@ export function PassengerJourneyLive({ journeyStatus, currentStopSequence, stops
           {tickets.map(ticket => {
             const canCheckIn = ticket.status === "CONFIRMED" && journeyStatus === "BOARDING" && currentStopSequence === ticket.originStop.sequence;
             const completed = terminalTicketStatuses.has(ticket.status);
+            const destinationStopState = stops.find(stop => stop.sequence === ticket.destinationStop.sequence)?.status;
+            const destinationReached = ticket.status === "BOARDED" &&
+              currentStopSequence === ticket.destinationStop.sequence &&
+              (destinationStopState === "ARRIVED" || destinationStopState === "BOARDING_OPEN");
             return (
               <article className="passenger-ticket-card" key={ticket.id}>
                 <div><small>TICKET {ticket.ticketNumber}</small><strong>Seat {ticket.seatNumber}</strong><span>{ticket.originStop.name} → {ticket.destinationStop.name}</span><em>{ticket.status.replaceAll("_", " ")}</em></div>
-                {canCheckIn ? <button className="button button-primary" type="button" disabled={busyTicket !== null} onClick={() => checkIn(ticket.id)}>{busyTicket === ticket.id ? "Checking in…" : "Check in"}</button> : completed ? <span className="ticket-terminal-note">{ticket.status === "COMPLETED" ? "Journey segment completed" : ticket.status.replaceAll("_", " ")}</span> : ticket.status === "CHECKED_IN" ? <span className="ticket-terminal-note">Checked in · Awaiting operator boarding</span> : ticket.status === "BOARDED" ? <span className="ticket-terminal-note">On board</span> : null}
+                {canCheckIn ? <button className="button button-primary" type="button" disabled={busyTicket !== null} onClick={() => checkIn(ticket.id)}>{busyTicket === ticket.id ? "Checking in…" : "Check in"}</button> : completed ? <span className="ticket-terminal-note">{ticket.status === "COMPLETED" ? "Journey segment completed" : ticket.status.replaceAll("_", " ")}</span> : ticket.status === "CHECKED_IN" ? <span className="ticket-terminal-note">Checked in · Awaiting operator boarding</span> : ticket.status === "BOARDED" && destinationReached ? <span className="ticket-terminal-note">Destination reached · Awaiting operator disembarkation</span> : ticket.status === "BOARDED" ? <span className="ticket-terminal-note">On board</span> : null}
               </article>
             );
           })}
