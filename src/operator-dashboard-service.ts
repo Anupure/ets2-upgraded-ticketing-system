@@ -19,7 +19,7 @@ async function requireOperator(db: Prisma.TransactionClient | PrismaClient, oper
   });
   if (!actor || actor.status !== UserStatus.ACTIVE ||
       actor.role !== UserRole.OPERATOR && actor.role !== UserRole.ADMIN) {
-    throw new BookingError("BOARDING_NOT_ALLOWED", "Only an active operator or administrator can access the operator dashboard.");
+    throw new BookingError("OPERATOR_REQUIRED", "Only an active operator or administrator can access the operator dashboard.");
   }
 }
 

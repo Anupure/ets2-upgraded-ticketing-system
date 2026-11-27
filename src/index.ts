@@ -3,3 +3,4 @@ export * from "./errors.js";
 export * from "./passenger-lifecycle-service.js";
 export * from "./journey-stop-service.js";
 export * from "./operator-dashboard-service.js";
+export * from "./http-api.js";

@@ -1,6 +1,6 @@
 # Booking API integration contract
 
-This repository currently contains a Prisma 6 / TypeScript service package, not a Next.js application. This contract describes the server boundary without assuming an authentication library or frontend that is not yet in the repository.
+This repository is a Prisma 6 / TypeScript service package, not a Next.js application. `src/http-api.ts` now provides a framework-neutral API dispatcher that can be mounted by a future Next.js route handler or another HTTP server. It deliberately does not implement authentication itself: the host must inject a verified server-session resolver.
 
 ## Current service exports
 
@@ -48,7 +48,7 @@ Header: `Idempotency-Key: <client-generated UUID retained across retries>`.
 Server flow:
 
 1. Authenticate and derive `userId` from the session.
-2. Validate the body with Zod and reject unknown fields.
+2. Validate the body and reject unknown fields (the current dispatcher uses explicit runtime checks; it does not use Zod).
 3. Fetch the journey's `ticketPrice` from PostgreSQL.
 4. Call `purchaseTicket` with that server-fetched price as `expectedPrice`.
 5. Return a safe ticket summary. Never return ledger internals or private credentials.
@@ -97,8 +97,9 @@ Return `balance` as a decimal string because Prisma `BigInt` cannot be serialize
 
 - The PostgreSQL exclusion constraint `seat_reservations_no_overlap` is required for concurrent segment allocation.
 - The partial unique index currently permits one active ticket per passenger per journey. That is an MVP rule, not an unavoidable product rule.
-- Operator boarding, destination disembarkation, no-show finalization, seat release, stop arrival/boarding/departure controls and final journey completion are implemented as transactional services. Operator dashboard overview and stop-wise manifest read services are implemented. HTTP routes, frontend and realtime delivery are still not implemented.
-- The booking API routes, Auth.js configuration, Next.js UI and realtime transport are not present in the current repo; do not pretend they are already implemented.
+- Operator boarding, destination disembarkation, no-show finalization, seat release, stop arrival/boarding/departure controls and final journey completion are implemented as transactional services. Operator dashboard overview and stop-wise manifest read services are implemented. The HTTP dispatcher is implemented but not yet mounted; frontend and realtime delivery are still not implemented.
+- The API dispatcher is implemented, but it is not yet mounted on a listening HTTP server or Next.js route handlers. Auth.js configuration, Next.js UI and realtime transport are still not present. The host adapter must parse the incoming JSON body, pass method/URL/headers/body to `createApiHandler`, serialize its `{ status, body }` response, and supply a trusted `getSession` implementation.
+- `createApiHandler({ db, getSession })` is exported from `src/index.ts`. `getSession` must return `{ userId }` from a verified session or `null`; never trust an ID from request input. Operator service methods independently validate the active operator/admin role in PostgreSQL.
 - Publish realtime events only after a transaction commits. Prefer a transactional outbox before introducing Socket.IO broadcasts.
 - Retry PostgreSQL serialization failures (SQLSTATE `40001`) with a small bounded retry while preserving the same idempotency key.
 
