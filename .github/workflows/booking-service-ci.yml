@@ -8,12 +8,14 @@ on:
       - fix/lifecycle-concurrency-migrations
       - fix/neon-integration-test-isolation
       - fix/booked-route-layout-integrity
+      - feat/nextjs-mobile-web-app
   pull_request:
     branches:
       - master
       - feat/booking-lifecycle-hardening
       - fix/lifecycle-concurrency-migrations
       - fix/neon-integration-test-isolation
+      - feat/nextjs-mobile-web-app
 
 jobs:
   validate:
@@ -33,9 +35,14 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     env:
+      DB_ENVIRONMENT: test
       DATABASE_URL: postgresql://postgres:postgres@localhost:5432/ets2_ci?schema=public
       DIRECT_URL: postgresql://postgres:postgres@localhost:5432/ets2_ci?schema=public
       PGPASSWORD: postgres
+      AUTH_SECRET: ci-only-secret-for-build-and-tests-123456789
+      AUTH_GOOGLE_ID: ci-test-google-client-id
+      AUTH_GOOGLE_SECRET: ci-test-google-client-secret
+      NEXT_TELEMETRY_DISABLED: 1
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -46,7 +53,7 @@ jobs:
           node-version: 22
 
       - name: Install root dependencies
-        run: npm ci
+        run: npm install
 
       - name: Generate Prisma client
         run: npx prisma generate --schema roguerpm-db/prisma/schema.prisma
@@ -62,3 +69,6 @@ jobs:
 
       - name: Unit and PostgreSQL integration tests
         run: npm test
+
+      - name: Build Next.js application
+        run: npm run build

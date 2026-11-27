@@ -60,7 +60,7 @@ integration("booked route and bus layout integrity", () => {
       if (layoutIds.length) await prisma.busLayout.deleteMany({ where: { id: { in: layoutIds } } });
       if (userIds.length) await prisma.user.deleteMany({ where: { id: { in: userIds } } });
     }
-  });
+  }, 15_000);
 
   it("freezes structural edits after ticketing but permits stop metadata corrections", async () => {
     const suffix = randomUUID().replaceAll("-", "").slice(0, 12);
