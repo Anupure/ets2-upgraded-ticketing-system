@@ -25,7 +25,7 @@ export default async function OperatorOnboardingPage() {
             <div className="stop-list">
               <div className="stop-item"><span className="stop-dot stop-current" /><span>Sign in with your registered account.</span></div>
               <div className="stop-item"><span className="stop-dot" /><span>Platform administration reviews and assigns operator access.</span></div>
-              <div className="stop-item"><span className="stop-dot" /><span>Once authorized, use the operator dashboard and only the journeys assigned to you.</span></div>
+              <div className="stop-item"><span className="stop-dot" /><span>Once authorized, use the operator dashboard to manage journeys.</span></div>
             </div>
             <p className="muted">For now, operator authorization is managed manually by the platform administrator. An online application and approval workflow has not been implemented yet.</p>
           </div>
