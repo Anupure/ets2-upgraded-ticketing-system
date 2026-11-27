@@ -110,4 +110,15 @@ describe("HTTP API boundary", () => {
     expect(result.status).toBe(409);
     expect(result.body).toMatchObject({ error: { code: "JOURNEY_NOT_OPEN" } });
   });
+
+  it("requires an operator session before a no-show action", async () => {
+    const { handle, db } = makeHandler({}, null);
+    const result = await handle({
+      method: "POST",
+      url: "/api/operator/tickets/11111111-1111-4111-8111-111111111111/no-show",
+      body: {},
+    });
+    expect(result.status).toBe(401);
+    expect(db.user.findUnique).not.toHaveBeenCalled();
+  });
 });
