@@ -12,3 +12,5 @@ dist/
 tsconfig.tsbuildinfo
 
 tsconfig.tsbuildinfo
+
+.vscode/
