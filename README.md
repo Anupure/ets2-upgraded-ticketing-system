@@ -24,7 +24,7 @@ Requirements: Node.js 20.9+ and the existing Neon/PostgreSQL database.
    - `DATABASE_URL`: pooled connection string (hostname contains `-pooler.`)
    - `DIRECT_URL`: direct connection string (hostname does not contain `-pooler.`)
 
-   Both URLs must target the same Neon branch and database. Keep production credentials in `.env`; never copy production URLs into `.env.local`. Do not commit either file.
+   Both URLs must target the same Neon branch and database. Set `DB_EXPECTED_BRANCH_HOST` to the exact direct hostname of that TEST branch (without `-pooler.`). This extra expected-host check helps catch accidentally copying production URLs. Keep production credentials in `.env`; never copy production URLs into `.env.local`. Do not commit either file.
 
 3. In Google Cloud Console, configure an OAuth web client and add this authorized redirect URI:
 
