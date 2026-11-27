@@ -19,7 +19,7 @@ export default async function OperatorPage() {
 
   return (
     <main className="site-shell">
-      <header className="topbar"><Link className="brand" href="/">ROGUE<span>RPM</span></Link><Link href="/">← Public site</Link></header>
+      <header className="topbar"><Link className="brand" href="/">ROGUE<span>RPM</span></Link><nav className="top-actions" aria-label="Operator navigation"><Link href="/operator/onboarding">Onboarding</Link><Link href="/">Public site</Link></nav></header>
       <section className="content-section operator-section">
         <p className="eyebrow">CONTROL ROOM</p><h1>Operator journeys</h1>
         <div className="operator-create-action"><Link className="button button-primary" href="/operator/journeys/new">+ Create journey</Link></div>\n        <p className="muted">Manage the live journey from a larger screen when possible. The layout remains usable on mobile for on-road operations.</p>
