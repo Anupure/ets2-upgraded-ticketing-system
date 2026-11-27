@@ -113,3 +113,38 @@ button{font:inherit}
 .operator-section>h2{margin:30px 0 14px;font-size:22px}
 @media(max-width:760px){.operator-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.stat-card{padding:15px}.operator-actions{align-items:stretch}.operator-actions .button{flex:1 1 100%;width:100%}}
 @media(max-width:380px){.operator-stats{grid-template-columns:1fr 1fr}.stat-card span{font-size:11px}}
+
+/* Passenger live journey tracker */
+.passenger-live-section{margin:30px 0 38px;padding:24px;border:1px solid var(--line);border-radius:14px;background:linear-gradient(145deg,#121d2b,#0f1722)}
+.passenger-live-heading{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:22px}
+.passenger-live-heading .eyebrow{margin:0 0 6px}.passenger-live-heading h2{font-size:22px;margin:0;letter-spacing:-.6px}
+.live-status-pill{font:9px 'DM Mono',monospace;letter-spacing:1px;color:var(--accent);border:1px solid #486327;border-radius:99px;padding:8px 10px;white-space:nowrap}
+.live-status-pill.completed{color:#8ee6ad;border-color:#286b47;background:#10271d}
+.journey-live-banner,.journey-complete-banner{padding:12px 14px;border:1px solid #344b2c;border-radius:9px;background:#172414;color:#d9efc1;font-size:12px;margin:0 0 22px}
+.journey-complete-banner{border-color:#286b47;background:#10271d;color:#b8f1cd}
+.route-progress{display:grid;gap:0}
+.route-progress-stop{display:grid;grid-template-columns:34px minmax(0,1fr);gap:12px;min-height:82px;position:relative}
+.route-progress-rail{position:relative;display:flex;justify-content:center}
+.route-progress-dot{position:absolute;top:0;left:7px;width:20px;height:20px;border:2px solid #65758b;border-radius:50%;background:#111a26;z-index:2;display:grid;place-items:center;color:#0b1018;font-size:12px;font-weight:900}
+.route-progress-stop.is-departed .route-progress-dot,.route-progress-stop.is-current .route-progress-dot{border-color:var(--accent);background:var(--accent);box-shadow:0 0 0 4px #b7f34a1c}
+.route-progress-stop.is-upcoming .route-progress-dot{background:#111a26}
+.route-progress-line{position:absolute;top:20px;bottom:-2px;left:15px;width:3px;border-radius:99px;background:#34445a;overflow:hidden}
+.route-progress-fill{display:block;width:100%;height:0;background:var(--accent);border-radius:99px}
+.route-progress-fill.full{height:100%}
+.route-progress-fill.half{height:50%}
+.route-bus-marker{position:absolute;z-index:3;top:43px;left:0;transform:translateX(-1px);padding:4px 5px;border:1px solid #8dbd36;border-radius:5px;background:#1b2b0b;color:var(--accent);font:8px 'DM Mono',monospace;letter-spacing:.5px;box-shadow:0 2px 8px #0008}
+.route-progress-copy{display:flex;flex-direction:column;gap:5px;padding:1px 0 22px}
+.route-progress-copy strong{font-size:14px}
+.route-progress-copy small{font:9px 'DM Mono',monospace;color:var(--muted);letter-spacing:.5px}
+.route-travelling-label{font-size:11px;color:var(--accent);margin-top:3px}
+.passenger-tickets{margin-top:12px;padding-top:20px;border-top:1px solid var(--line)}
+.passenger-tickets h3{font-size:16px;margin:0 0 12px}
+.passenger-ticket-card{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:14px;margin-top:9px;border:1px solid var(--line);border-radius:10px;background:#0e1723}
+.passenger-ticket-card>div{display:grid;gap:5px;min-width:0}
+.passenger-ticket-card small{font:9px 'DM Mono',monospace;color:var(--accent)}
+.passenger-ticket-card strong{font-size:13px}
+.passenger-ticket-card span,.passenger-ticket-card em,.ticket-terminal-note{font-size:11px;color:var(--muted);font-style:normal}
+.passenger-ticket-card em{color:#c4d5a5}
+.passenger-live-footnote{margin:18px 0 0;color:#8291a5;font-size:10px;line-height:1.6}
+.journey-layout-booking{grid-template-columns:minmax(0,1fr)}
+@media(max-width:620px){.passenger-live-section{padding:17px}.passenger-live-heading{align-items:flex-start;flex-direction:column}.passenger-ticket-card{align-items:flex-start;flex-direction:column}.passenger-ticket-card .button{width:100%}}
