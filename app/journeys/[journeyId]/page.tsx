@@ -21,8 +21,19 @@ export default async function JourneyPage({ params }: { params: Promise<{ journe
     }),
   ]);
   if (!journey) notFound();
-  const initialSeats = await getSeatMap(prisma, journey.id,
-    journey.stops[0]?.sequence, journey.stops[1]?.sequence);
+  const [initialSeats, passengerTickets] = await Promise.all([
+    getSeatMap(prisma, journey.id, journey.stops[0]?.sequence, journey.stops[1]?.sequence),
+    session?.user?.id ? prisma.ticket.findMany({
+      where: { journeyId: journey.id, userId: session.user.id },
+      orderBy: { purchasedAt: "desc" },
+      select: {
+        id: true, ticketNumber: true, status: true,
+        originStop: { select: { id: true, name: true, sequence: true } },
+        destinationStop: { select: { id: true, name: true, sequence: true } },
+        seatReservations: { select: { seat: { select: { seatNumber: true } } } },
+      },
+    }) : Promise.resolve([]),
+  ]);
   const stops = journey.stops.map(stop => ({ id: stop.id, sequence: stop.sequence, name: stop.name }));
 
   return (
