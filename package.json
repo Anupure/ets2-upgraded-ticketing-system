@@ -8,7 +8,7 @@
     "build": "prisma generate --schema roguerpm-db/prisma/schema.prisma && next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
+    "test": "node scripts/db-test.mjs test run",
     "db:generate": "prisma generate --schema roguerpm-db/prisma/schema.prisma",
     "db:test:status": "node scripts/db-test.mjs migrate status",
     "db:test:migrate": "node scripts/db-test.mjs migrate deploy",
