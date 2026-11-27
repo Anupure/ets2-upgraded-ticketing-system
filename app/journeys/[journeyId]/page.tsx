@@ -4,6 +4,7 @@ import { auth } from "@/src/auth";
 import { getSeatMap } from "@/src/booking-service.js";
 import { prisma } from "@/src/prisma";
 import { BookingPanel } from "./booking-panel";
+import { PassengerJourneyLive } from "./passenger-journey-live";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +15,7 @@ export default async function JourneyPage({ params }: { params: Promise<{ journe
     prisma.journey.findUnique({
       where: { id: journeyId },
       select: {
-        id: true, journeyNumber: true, name: true, description: true, status: true, ticketPrice: true,
+        id: true, journeyNumber: true, name: true, description: true, status: true, ticketPrice: true, currentStopSequence: true,
         stops: { orderBy: { sequence: "asc" }, select: { id: true, sequence: true, name: true, status: true } },
       },
     }),
