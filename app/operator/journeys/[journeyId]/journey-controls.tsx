@@ -47,7 +47,7 @@ export function JourneyControls({ journeyId, status, stops, canComplete }: Props
         {status === "PAUSED" && arrived && arrived.sequence !== finalStop?.sequence ? button("boarding", `Open boarding at ${arrived.name}`, `/api/operator/journeys/${journeyId}/stops/${arrived.id}/open-boarding`) : null}
         {status === "BOARDING" && boarding ? button("depart", `Depart ${boarding.name}`, `/api/operator/journeys/${journeyId}/stops/${boarding.id}/depart`) : null}
         {status === "PAUSED" && finalStop?.status === "ARRIVED" && canComplete ? button("complete", "Complete journey", `/api/operator/journeys/${journeyId}/complete`) : null}
-        {status === "PAUSED" && finalStop?.status === "ARRIVED" && !canComplete ? <p className="muted">Resolve all remaining passengers in the final-stop manifest before completing this journey.</p> : null}
+        {status === "PAUSED" && finalStop?.status === "ARRIVED" && !canComplete ? <p className="muted">Resolve outstanding tickets from their original boarding-stop manifests. Departed origin manifests remain available for no-show confirmation.</p> : null}
         {status === "COMPLETED" ? <p className="muted">This journey is complete.</p> : null}
       </div>
       {error ? <p role="alert" className="form-error">{error}</p> : null}
