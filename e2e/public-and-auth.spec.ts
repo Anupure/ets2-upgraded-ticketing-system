@@ -4,6 +4,7 @@ test("public landing page renders the journey entry point", async ({ page }) => 
   await page.goto("/");
   await expect(page.getByRole("heading", { level: 1, name: /your seat\. your journey\./i })).toBeVisible();
   await expect(page.getByRole("link", { name: /explore the journey/i })).toBeVisible();
+  await expect(page.getByRole("link", { name: /driver onboarding/i }).first()).toBeVisible();
 });
 
 test("operator control room redirects anonymous visitors to sign-in", async ({ page }) => {
@@ -18,4 +19,12 @@ test("operator ticket actions reject anonymous API requests", async ({ request }
     { data: {} },
   );
   expect(response.status()).toBe(401);
+});
+
+
+test("driver onboarding explains that access requires administrator approval", async ({ page }) => {
+  await page.goto("/operator/onboarding");
+  await expect(page.getByRole("heading", { name: /operator onboarding/i })).toBeVisible();
+  await expect(page.getByText(/does not grant permission to manage journeys/i)).toBeVisible();
+  await expect(page.getByText(/managed manually by the platform administrator/i)).toBeVisible();
 });
