@@ -12,7 +12,8 @@
     "db:generate": "prisma generate --schema roguerpm-db/prisma/schema.prisma",
     "db:test:status": "node scripts/db-test.mjs migrate status",
     "db:test:migrate": "node scripts/db-test.mjs migrate deploy",
-    "db:test:validate": "node scripts/db-test.mjs validate"
+    "db:test:validate": "node scripts/db-test.mjs validate",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",
@@ -27,7 +28,8 @@
     "@types/react-dom": "^19.1.0",
     "prisma": "^6.19.0",
     "typescript": "^5.9.0",
-    "vitest": "^3.2.0"
+    "vitest": "^3.2.0",
+    "@playwright/test": "^1.56.1"
   },
   "engines": {
     "node": ">=20.9.0"
