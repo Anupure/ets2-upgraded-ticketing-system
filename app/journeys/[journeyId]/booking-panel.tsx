@@ -77,6 +77,15 @@ export function BookingPanel({ journeyId, stops, initialSeats, signedIn, canBook
   }
 
   const destinationOptions = stops.filter(stop => !origin || stop.sequence > origin.sequence);
+  const seatRows = Array.from(
+    seats.reduce((rows, seat) => {
+      const row = rows.get(seat.row) ?? [];
+      row.push(seat);
+      rows.set(seat.row, row);
+      return rows;
+    }, new Map<number, Seat[]>()),
+  ).sort(([a], [b]) => a - b);
+
   return (
     <section className="booking-panel">
       <div className="booking-controls">
@@ -85,10 +94,37 @@ export function BookingPanel({ journeyId, stops, initialSeats, signedIn, canBook
       </div>
       <div className="seat-legend"><span><i className="legend-seat available" /> Available</span><span><i className="legend-seat booked" /> Reserved</span><span><i className="legend-seat occupied" /> Onboard</span></div>
       {loadingSeats ? <p className="muted">Updating seat availability…</p> : (
-        <div className="seat-grid">
-          {seats.map(seat => <button key={seat.seatNumber} type="button" disabled={!seat.bookable || seat.state !== "AVAILABLE"} aria-pressed={selectedSeat === seat.seatNumber} title={`Seat ${seat.seatNumber}: ${seat.state.toLowerCase()}`} className={`seat-button seat-${seat.state.toLowerCase()} ${selectedSeat === seat.seatNumber ? "seat-selected" : ""}`} onClick={() => { setSelectedSeat(seat.seatNumber); idempotencyKey.current = null; setMessage(""); }}>
-            {seat.seatNumber}
-          </button>)}
+        <div className="bus-seat-map" aria-label="Bus seating layout">
+          <div className="bus-front">
+            <div className="bus-driver">
+              <span className="bus-driver-wheel" aria-hidden="true">◉</span>
+              <span>DRIVER</span>
+              <small>LEFT-HAND DRIVE</small>
+            </div>
+            <div className="bus-front-label">FRONT OF BUS</div>
+          </div>
+          <div className="bus-seat-rows">
+            {seatRows.map(([rowNumber, rowSeats]) => (
+              <div className="bus-seat-row" key={rowNumber} aria-label={`Row ${rowNumber}`}>
+                {rowSeats.sort((a, b) => a.column - b.column).map(seat => (
+                  <button
+                    key={seat.seatNumber}
+                    type="button"
+                    disabled={!seat.bookable || seat.state !== "AVAILABLE"}
+                    aria-label={`Seat ${seat.seatNumber}, ${seat.state.toLowerCase()}`}
+                    aria-pressed={selectedSeat === seat.seatNumber}
+                    title={`Seat ${seat.seatNumber}: ${seat.state.toLowerCase()}`}
+                    style={{ gridColumn: seat.column <= 2 ? seat.column : seat.column + 1 }}
+                    className={`seat-button seat-${seat.state.toLowerCase()} ${selectedSeat === seat.seatNumber ? "seat-selected" : ""}`}
+                    onClick={() => { setSelectedSeat(seat.seatNumber); idempotencyKey.current = null; setMessage(""); }}
+                  >
+                    <span>{seat.seatNumber}</span>
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+          <div className="bus-rear-label">REAR OF BUS</div>
         </div>
       )}
       <div className="booking-submit">
