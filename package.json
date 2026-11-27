@@ -10,9 +10,9 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "db:generate": "prisma generate --schema roguerpm-db/prisma/schema.prisma",
-    "db:test:status": "node --env-file=.env.local scripts/db-test.mjs migrate status",
-    "db:test:migrate": "node --env-file=.env.local scripts/db-test.mjs migrate deploy",
-    "db:test:validate": "node --env-file=.env.local scripts/db-test.mjs validate"
+    "db:test:status": "node scripts/db-test.mjs migrate status",
+    "db:test:migrate": "node scripts/db-test.mjs migrate deploy",
+    "db:test:validate": "node scripts/db-test.mjs validate"
   },
   "dependencies": {
     "@prisma/client": "^6.19.0",
