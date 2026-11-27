@@ -9,7 +9,7 @@ test("public landing page renders the journey entry point", async ({ page }) => 
 test("operator control room redirects anonymous visitors to sign-in", async ({ page }) => {
   await page.goto("/operator");
   await expect(page).toHaveURL(/\/sign-in/);
-  await expect(page.getByRole("heading", { name: /sign in/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /join the convoy/i })).toBeVisible();
 });
 
 test("operator ticket actions reject anonymous API requests", async ({ request }) => {
