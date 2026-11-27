@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { auth, signIn, signOut } from "@/src/auth";
+import { auth, signOut } from "@/src/auth";
 import { prisma } from "@/src/prisma";
 
 export const dynamic = "force-dynamic";
@@ -17,23 +17,24 @@ export default async function HomePage() {
       },
     }),
   ]);
+  const isOperator = session?.user?.role === "OPERATOR" || session?.user?.role === "ADMIN";
 
   return (
     <main className="site-shell">
       <header className="topbar">
         <Link className="brand" href="/">ROGUE<span>RPM</span></Link>
         <nav className="top-actions" aria-label="Main navigation">
+          <Link href="#active-journey">Journeys</Link>
+          <Link href="/operator/onboarding">Driver onboarding</Link>
+          {isOperator ? <Link href="/operator">Operator dashboard</Link> : null}
           {session?.user ? (
             <>
               <span className="user-chip">{session.user.name || "Passenger"}</span>
-              {session.user.role === "OPERATOR" || session.user.role === "ADMIN" ? <Link href="/operator">Operator</Link> : null}
               <form action={async () => { "use server"; await signOut({ redirectTo: "/" }); }}>
                 <button className="button button-quiet" type="submit">Sign out</button>
               </form>
             </>
-          ) : (
-            <Link className="button button-primary" href="/sign-in">Sign in</Link>
-          )}
+          ) : <Link className="button button-primary" href="/sign-in">Sign in</Link>}
         </nav>
       </header>
 
@@ -44,7 +45,7 @@ export default async function HomePage() {
           <p className="hero-lede">Ride along with the stream. Book a seat, follow every stop and be part of the convoy.</p>
           <div className="hero-actions">
             <a className="button button-primary" href="#active-journey">Explore the journey</a>
-            {session?.user ? <span className="signed-in-note">Signed in as {session.user.name || session.user.email}</span> : <Link className="button button-secondary" href="/sign-in">Join the ride</Link>}
+            {session?.user ? <span className="signed-in-note">Signed in as {session.user.name || "Passenger"}</span> : <Link className="button button-secondary" href="/sign-in">Join the ride</Link>}
           </div>
         </div>
         <div className="hero-art" aria-hidden="true">
@@ -52,6 +53,34 @@ export default async function HomePage() {
           <div className="route-orbit orbit-two" />
           <div className="hero-number">42<span>SEATS</span></div>
           <div className="hero-caption">ONE COMMUNITY<br />ONE CONVOY</div>
+        </div>
+      </section>
+
+      <section className="content-section" aria-labelledby="quick-access-title">
+        <div className="section-heading">
+          <div><p className="eyebrow">QUICK ACCESS</p><h2 id="quick-access-title">Where would you like to go?</h2></div>
+        </div>
+        <div className="feature-grid">
+          <article className="feature-card">
+            <span className="feature-index">01 · PASSENGER</span>
+            <h3>Find a journey</h3>
+            <p>Explore the currently active journey, choose your route segment and book a seat.</p>
+            {journey ? <Link className="manifest-link" href={`/journeys/${journey.id}`}>Open active journey →</Link> : <a className="manifest-link" href="#active-journey">View journey status →</a>}
+          </article>
+          <article className="feature-card">
+            <span className="feature-index">02 · DRIVER</span>
+            <h3>Driver onboarding</h3>
+            <p>Understand the operator access process and the responsibilities involved.</p>
+            <Link className="manifest-link" href="/operator/onboarding">View onboarding →</Link>
+          </article>
+          {isOperator ? (
+            <article className="feature-card">
+              <span className="feature-index">03 · OPERATOR</span>
+              <h3>Control room</h3>
+              <p>Manage journeys, monitor passenger operations and open stop manifests.</p>
+              <Link className="manifest-link" href="/operator">Open operator dashboard →</Link>
+            </article>
+          ) : null}
         </div>
       </section>
 
