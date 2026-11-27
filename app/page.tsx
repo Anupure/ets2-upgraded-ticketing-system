@@ -25,7 +25,6 @@ export default async function HomePage() {
         <Link className="brand" href="/">ROGUE<span>RPM</span></Link>
         <nav className="top-actions" aria-label="Main navigation">
           <Link href="#active-journey">Journeys</Link>
-          <Link href="/operator/onboarding">Driver onboarding</Link>
           {isOperator ? <Link href="/operator">Operator dashboard</Link> : null}
           {session?.user ? (
             <>
@@ -66,12 +65,6 @@ export default async function HomePage() {
             <h3>Find a journey</h3>
             <p>Explore the currently active journey, choose your route segment and book a seat.</p>
             {journey ? <Link className="manifest-link" href={`/journeys/${journey.id}`}>Open active journey →</Link> : <a className="manifest-link" href="#active-journey">View journey status →</a>}
-          </article>
-          <article className="feature-card">
-            <span className="feature-index">02 · DRIVER</span>
-            <h3>Driver onboarding</h3>
-            <p>Understand the operator access process and the responsibilities involved.</p>
-            <Link className="manifest-link" href="/operator/onboarding">View onboarding →</Link>
           </article>
           {isOperator ? (
             <article className="feature-card">
