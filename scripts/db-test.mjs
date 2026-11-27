@@ -1,6 +1,6 @@
+import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
-import { dirname, resolve } from "node:path";
+import { resolve } from "node:path";
 
 const schemaPath = "roguerpm-db/prisma/schema.prisma";
 const prismaCli = resolve("node_modules/prisma/build/index.js");
@@ -10,8 +10,42 @@ function fail(message) {
   process.exit(1);
 }
 
+function readLocalEnvironment() {
+  let content;
+  try {
+    content = readFileSync(resolve(".env.local"), "utf8");
+  } catch {
+    fail("Could not read .env.local. Create it from .env.example first.");
+  }
+
+  const values = {};
+  for (const [index, line] of content.split(/\r?\n/).entries()) {
+    const match = line.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*?)\s*$/);
+    if (!match) continue;
+
+    const [, key] = match;
+    let value = match[2];
+    if (value.startsWith('"')) {
+      try {
+        value = JSON.parse(value);
+      } catch {
+        fail(`Invalid quoted value for ${key} on line ${index + 1} of .env.local.`);
+      }
+    } else if (value.startsWith("'")) {
+      if (!value.endsWith("'")) fail(`Unclosed quote for ${key} on line ${index + 1} of .env.local.`);
+      value = value.slice(1, -1);
+    } else {
+      value = value.replace(/\s+#.*$/, "").trim();
+    }
+    values[key] = value;
+  }
+  return values;
+}
+
+const localEnv = readLocalEnvironment();
+
 function parseConnection(name) {
-  const value = process.env[name];
+  const value = localEnv[name];
   if (!value) fail(`${name} is missing from .env.local.`);
 
   let url;
@@ -24,7 +58,7 @@ function parseConnection(name) {
   if (!["postgres:", "postgresql:"].includes(url.protocol)) {
     fail(`${name} must use PostgreSQL.`);
   }
-  if (!url.hostname.endsWith(".neon.tech")) {
+  if (!url.hostname.toLowerCase().endsWith(".neon.tech")) {
     fail(`${name} must point to a Neon host; refusing an unknown target.`);
   }
 
@@ -36,7 +70,7 @@ function parseConnection(name) {
   };
 }
 
-if (process.env.DB_ENVIRONMENT !== "test") {
+if (localEnv.DB_ENVIRONMENT !== "test") {
   fail('Set DB_ENVIRONMENT="test" in .env.local before using db:test:* commands.');
 }
 
@@ -68,7 +102,12 @@ console.log(`Running: prisma ${args.join(" ")}`);
 
 const result = spawnSync(process.execPath, [prismaCli, ...args, "--schema", schemaPath], {
   stdio: "inherit",
-  env: process.env,
+  env: {
+    ...process.env,
+    DB_ENVIRONMENT: localEnv.DB_ENVIRONMENT,
+    DATABASE_URL: localEnv.DATABASE_URL,
+    DIRECT_URL: localEnv.DIRECT_URL,
+  },
 });
 
 if (result.error) fail(`Could not start Prisma: ${result.error.message}`);
