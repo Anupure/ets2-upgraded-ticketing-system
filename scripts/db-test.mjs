@@ -13,9 +13,9 @@ function fail(message) {
 function readLocalEnvironment() {
   let content;
   try {
-    content = readFileSync(resolve(".env.local"), "utf8");
+    content = readFileSync(resolve(".env.integration"), "utf8");
   } catch {
-    fail("Could not read .env.local. Create it from .env.example first.");
+    fail("Could not read .env.integration. Create it from .env.integration.example and use a dedicated empty Neon integration-test branch.");
   }
 
   const values = {};
@@ -29,10 +29,10 @@ function readLocalEnvironment() {
       try {
         value = JSON.parse(value);
       } catch {
-        fail(`Invalid quoted value for ${key} on line ${index + 1} of .env.local.`);
+        fail(`Invalid quoted value for ${key} on line ${index + 1} of .env.integration.`);
       }
     } else if (value.startsWith("'")) {
-      if (!value.endsWith("'")) fail(`Unclosed quote for ${key} on line ${index + 1} of .env.local.`);
+      if (!value.endsWith("'")) fail(`Unclosed quote for ${key} on line ${index + 1} of .env.integration.`);
       value = value.slice(1, -1);
     } else {
       value = value.replace(/\s+#.*$/, "").trim();
@@ -46,7 +46,7 @@ const localEnv = readLocalEnvironment();
 
 function parseConnection(name) {
   const value = localEnv[name];
-  if (!value) fail(`${name} is missing from .env.local.`);
+  if (!value) fail(`${name} is missing from .env.integration.`);
 
   let url;
   try {
@@ -71,7 +71,7 @@ function parseConnection(name) {
 }
 
 if (localEnv.DB_ENVIRONMENT !== "test") {
-  fail('Set DB_ENVIRONMENT="test" in .env.local before using db:test:* commands.');
+  fail('Set DB_ENVIRONMENT="test" in .env.integration before using db:test:* commands.');
 }
 
 const pooled = parseConnection("DATABASE_URL");
@@ -85,7 +85,7 @@ if (direct.pooled) {
 }
 const expectedHost = localEnv.DB_EXPECTED_BRANCH_HOST?.toLowerCase();
 if (!expectedHost || expectedHost !== direct.host) {
-  fail("DIRECT_URL does not match DB_EXPECTED_BRANCH_HOST in .env.local.");
+  fail("DIRECT_URL does not match DB_EXPECTED_BRANCH_HOST in .env.integration.");
 }
 if (pooled.normalizedHost !== direct.normalizedHost) {
   fail("DATABASE_URL and DIRECT_URL point to different Neon branches.");
@@ -99,7 +99,7 @@ if (args.length === 0) {
   fail("No command supplied.");
 }
 
-// Vitest does not automatically load .env.local. Run it through this guard so
+// Vitest does not automatically load .env.integration. Run it through this guard so
 // integration tests receive the verified TEST database URLs, never inherited
 // shell values (which could point at production).
 const isVitest = args[0] === "test";
@@ -113,7 +113,7 @@ if (isVitest && commandArgs.length === 0) {
   commandArgs.push("run");
 }
 
-console.log("Database target verified: Neon TEST branch.");
+console.log("Database target verified: dedicated Neon INTEGRATION branch.");
 console.log(`Host: ${direct.host}`);
 console.log(`Database: ${direct.database}`);
 console.log(`Running: ${isVitest ? "vitest" : "prisma"} ${commandArgs.join(" ")}`);
