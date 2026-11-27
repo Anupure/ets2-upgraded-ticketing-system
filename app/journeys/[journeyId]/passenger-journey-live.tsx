@@ -42,8 +42,7 @@ export function PassengerJourneyLive({ journeyStatus, currentStopSequence, stops
 
   const departedIndex = stops.findIndex(stop => stop.sequence === currentStopSequence && stop.status === "DEPARTED");
   const journeyComplete = journeyStatus === "COMPLETED";
-  const progressStopIndex = journeyComplete ? stops.length - 1 : departedIndex;
-  const currentStop = stops.find(stop => stop.sequence === currentStopSequence);
+const currentStop = stops.find(stop => stop.sequence === currentStopSequence);
   const boardingStop = stops.find(stop => stop.sequence === currentStopSequence && stop.status === "BOARDING_OPEN");
 
   return (
