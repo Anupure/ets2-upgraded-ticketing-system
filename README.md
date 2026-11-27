@@ -20,7 +20,11 @@ Requirements: Node.js 20.9+ and the existing Neon/PostgreSQL database.
    npm install
    ```
 
-2. Copy `.env.example` to `.env.local` and set the database and Google OAuth values. Do not commit `.env.local`.
+2. Copy `.env.example` to `.env.local`. Set `DB_ENVIRONMENT="test"` and configure **both** database URLs to your Neon TEST branch:
+   - `DATABASE_URL`: pooled connection string (hostname contains `-pooler.`)
+   - `DIRECT_URL`: direct connection string (hostname does not contain `-pooler.`)
+
+   Both URLs must target the same Neon branch and database. Keep production credentials in `.env`; never copy production URLs into `.env.local`. Do not commit either file.
 
 3. In Google Cloud Console, configure an OAuth web client and add this authorized redirect URI:
 
@@ -42,6 +46,20 @@ Requirements: Node.js 20.9+ and the existing Neon/PostgreSQL database.
    ```
 
 6. Open [http://localhost:3000](http://localhost:3000).
+
+### Safe local database commands
+
+Use the guarded commands below for operations against the local TEST branch:
+
+```bash
+npm run db:test:status
+npm run db:test:validate
+npm run db:test:migrate
+```
+
+These commands explicitly load `.env.local` (Node.js 20.9+) and refuse to run unless `DB_ENVIRONMENT="test"`, both URLs are valid Neon URLs, the pooled/direct hostnames resolve to the same branch, and both use the same database name. They print the target host and database name, never credentials.
+
+Do not use raw `npx prisma migrate deploy`, `migrate reset`, or `db push` for local work. Those commands do not load `.env.local` by default and can accidentally pick up values from `.env`. There is deliberately no convenience command for production migrations; production changes require a separate, deliberate operational procedure.
 
 For production, configure the matching production Google OAuth callback URL and set `AUTH_URL` / `AUTH_SECRET` and the database variables in the hosting provider's encrypted environment settings.
 
