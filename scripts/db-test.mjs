@@ -96,15 +96,29 @@ if (pooled.database !== direct.database) {
 
 const args = process.argv.slice(2);
 if (args.length === 0) {
-  fail("No Prisma command supplied.");
+  fail("No command supplied.");
+}
+
+// Vitest does not automatically load .env.local. Run it through this guard so
+// integration tests receive the verified TEST database URLs, never inherited
+// shell values (which could point at production).
+const isVitest = args[0] === "test";
+const vitestCli = resolve("node_modules/vitest/vitest.mjs");
+const command = isVitest ? vitestCli : prismaCli;
+const commandArgs = isVitest
+  ? args.slice(1)
+  : [...args, "--schema", schemaPath];
+
+if (isVitest && commandArgs.length === 0) {
+  commandArgs.push("run");
 }
 
 console.log("Database target verified: Neon TEST branch.");
 console.log(`Host: ${direct.host}`);
 console.log(`Database: ${direct.database}`);
-console.log(`Running: prisma ${args.join(" ")}`);
+console.log(`Running: ${isVitest ? "vitest" : "prisma"} ${commandArgs.join(" ")}`);
 
-const result = spawnSync(process.execPath, [prismaCli, ...args, "--schema", schemaPath], {
+const result = spawnSync(process.execPath, [command, ...commandArgs], {
   stdio: "inherit",
   env: {
     ...process.env,
@@ -114,5 +128,8 @@ const result = spawnSync(process.execPath, [prismaCli, ...args, "--schema", sche
   },
 });
 
-if (result.error) fail(`Could not start Prisma: ${result.error.message}`);
+if (result.error) {
+  fail(`Could not start ${isVitest ? "Vitest" : "Prisma"}: ${result.error.message}`);
+}
+
 process.exit(result.status ?? 1);
