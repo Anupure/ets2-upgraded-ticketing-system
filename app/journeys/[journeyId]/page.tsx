@@ -44,9 +44,7 @@ export default async function JourneyPage({ params }: { params: Promise<{ journe
         <h1 className="journey-title">{journey.name}</h1>
         <p className="muted">{journey.description || "Choose your route segment and reserve your place in the convoy."}</p>
         <div className="journey-facts"><span><small>STATUS</small>{journey.status.replaceAll("_", " ")}</span><span><small>FARE</small>{journey.ticketPrice.toString()} tokens</span><span><small>STOPS</small>{journey.stops.length}</span></div>
-        <PassengerJourneyLive
-          journeyId={journey.id}
-          journeyStatus={journey.status}
+        <PassengerJourneyLive\n          journeyStatus={journey.status}
           currentStopSequence={journey.currentStopSequence}
           stops={journey.stops.map(stop => ({ id: stop.id, sequence: stop.sequence, name: stop.name, status: stop.status }))}
           tickets={passengerTickets.map(ticket => ({
@@ -56,9 +54,9 @@ export default async function JourneyPage({ params }: { params: Promise<{ journe
           }))}
           signedIn={Boolean(session?.user?.id)}
         />
-        <div className="journey-layout journey-layout-booking">
+        {journey.status !== "COMPLETED" ? <div className="journey-layout journey-layout-booking">
           <div><h2>Choose your seat</h2><BookingPanel journeyId={journey.id} stops={stops} initialSeats={initialSeats} signedIn={Boolean(session?.user?.id)} canBook={journey.status === "BOOKING_OPEN"} /></div>
-        </div>
+        </div> : null}
       </section>
     </main>
   );
