@@ -83,6 +83,10 @@ if (!pooled.pooled) {
 if (direct.pooled) {
   fail("DIRECT_URL must use the Neon direct hostname (without -pooler.).");
 }
+const expectedHost = localEnv.DB_EXPECTED_BRANCH_HOST?.toLowerCase();
+if (!expectedHost || expectedHost !== direct.host) {
+  fail("DIRECT_URL does not match DB_EXPECTED_BRANCH_HOST in .env.local.");
+}
 if (pooled.normalizedHost !== direct.normalizedHost) {
   fail("DATABASE_URL and DIRECT_URL point to different Neon branches.");
 }
