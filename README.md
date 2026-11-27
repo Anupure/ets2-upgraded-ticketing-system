@@ -57,7 +57,7 @@ npm run db:test:validate
 npm run db:test:migrate
 ```
 
-These commands explicitly load `.env.local` (Node.js 20.9+) and refuse to run unless `DB_ENVIRONMENT="test"`, both URLs are valid Neon URLs, the pooled/direct hostnames resolve to the same branch, and both use the same database name. They print the target host and database name, never credentials.
+These commands read the required database settings directly from `.env.local` (independent of inherited shell variables) and refuse to run unless `DB_ENVIRONMENT="test"`, both URLs are valid Neon URLs, the pooled/direct hostnames resolve to the same branch, and both use the same database name. They print the target host and database name, never credentials.
 
 Do not use raw `npx prisma migrate deploy`, `migrate reset`, or `db push` for local work. Those commands do not load `.env.local` by default and can accidentally pick up values from `.env`. There is deliberately no convenience command for production migrations; production changes require a separate, deliberate operational procedure.
 
