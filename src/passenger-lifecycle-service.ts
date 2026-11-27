@@ -102,8 +102,12 @@ export async function markNoShow(db: Db, operatorId: string, ticketId: string) {
     });
     if (!ticket) throw new BookingError("TICKET_NOT_FOUND", "Ticket not found.");
     if (ticket.status === TicketStatus.NO_SHOW) return { ticket, alreadyNoShow: true };
+    const journeyIsOperational =
+      ticket.journey.status === JourneyStatus.IN_PROGRESS ||
+      ticket.journey.status === JourneyStatus.PAUSED ||
+      ticket.journey.status === JourneyStatus.BOARDING;
     if ((ticket.status !== TicketStatus.CONFIRMED && ticket.status !== TicketStatus.CHECKED_IN) ||
-        ![JourneyStatus.IN_PROGRESS, JourneyStatus.PAUSED, JourneyStatus.BOARDING].includes(ticket.journey.status)) {
+        !journeyIsOperational) {
       throw new BookingError("BOARDING_NOT_ALLOWED", "Only an unboarded ticket can be finalized as a no-show after the coach has departed.");
     }
     // A missed passenger can be confirmed as a no-show later in the route.
