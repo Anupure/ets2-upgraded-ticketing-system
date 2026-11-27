@@ -5,8 +5,9 @@ import { useEffect, useRef, useState } from "react";
 type Stop = { id: string; sequence: number; name: string };
 type Seat = { seatNumber: string; row: number; column: number; seatType: string; bookable: boolean; state: string; passenger: { displayName: string; avatarUrl: string | null } | null };
 
-export function BookingPanel({ journeyId, stops, initialSeats, signedIn, canBook, hasActiveTicket }: {
+export function BookingPanel({ journeyId, stops, initialSeats, signedIn, canBook, hasActiveTicket, initialTokenBalance, ticketPrice }: {
   journeyId: string; stops: Stop[]; initialSeats: Seat[]; signedIn: boolean; canBook: boolean; hasActiveTicket: boolean;
+  initialTokenBalance: string | null; ticketPrice: string;
 }) {
   const [originId, setOriginId] = useState(stops[0]?.id ?? "");
   const [destinationId, setDestinationId] = useState(stops[1]?.id ?? "");
@@ -16,7 +17,33 @@ export function BookingPanel({ journeyId, stops, initialSeats, signedIn, canBook
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState(hasActiveTicket ? "You already have an active ticket for this journey." : "");
   const [bookingConfirmed, setBookingConfirmed] = useState(hasActiveTicket);
+  const startingBalance = initialTokenBalance === null ? null : Number(initialTokenBalance);
+  const [tokenBalance, setTokenBalance] = useState<number | null>(startingBalance);
+  const balanceRef = useRef<number | null>(startingBalance);
+  const animationFrame = useRef<number | null>(null);
   const idempotencyKey = useRef<string | null>(null);
+
+  function animateBalanceDown(cost: number) {
+    if (balanceRef.current === null || !Number.isFinite(cost)) return;
+    if (animationFrame.current !== null) cancelAnimationFrame(animationFrame.current);
+    const from = balanceRef.current;
+    const to = Math.max(0, from - cost);
+    const startedAt = performance.now();
+    const duration = 850;
+    const step = (now: number) => {
+      const progress = Math.min(1, (now - startedAt) / duration);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const next = Math.round(from + (to - from) * eased);
+      setTokenBalance(next);
+      if (progress < 1) animationFrame.current = requestAnimationFrame(step);
+      else { balanceRef.current = to; animationFrame.current = null; }
+    };
+    animationFrame.current = requestAnimationFrame(step);
+  }
+
+  useEffect(() => () => {
+    if (animationFrame.current !== null) cancelAnimationFrame(animationFrame.current);
+  }, []);
   const origin = stops.find(stop => stop.id === originId);
   const destination = stops.find(stop => stop.id === destinationId);
 
@@ -67,6 +94,7 @@ export function BookingPanel({ journeyId, stops, initialSeats, signedIn, canBook
       if (!response.ok) throw new Error(data.error?.message || "Booking failed.");
       setMessage(`Ticket ${data.ticket.ticketNumber} confirmed. Your seat is reserved.`);
       setBookingConfirmed(true);
+      animateBalanceDown(Number(ticketPrice));
       idempotencyKey.current = null;
       const refresh = await fetch(`/api/journeys/${journeyId}/seats?from=${origin.sequence}&to=${destination.sequence}`);
       if (refresh.ok) setSeats((await refresh.json()).seats as Seat[]);
@@ -81,6 +109,13 @@ export function BookingPanel({ journeyId, stops, initialSeats, signedIn, canBook
   const destinationOptions = stops.filter(stop => !origin || stop.sequence > origin.sequence);
   return (
     <section className="booking-panel">
+      {signedIn ? (
+        <div className="token-balance" aria-live="polite" aria-label={tokenBalance === null ? "Token balance unavailable" : `Current token balance: ${tokenBalance} tokens`}>
+          <span className="token-balance-label">YOUR AVAILABLE TOKENS</span>
+          <strong key={tokenBalance === null ? "unavailable" : "balance"}>{tokenBalance === null ? "—" : tokenBalance.toLocaleString("en-IN")}</strong>
+          <span className="token-balance-unit">TOKENS</span>
+        </div>
+      ) : null}
       <div className="booking-controls">
         <label>Board at<select disabled={bookingConfirmed} value={originId} onChange={event => changeRoute("origin", event.target.value)}>{stops.map(stop => <option key={stop.id} value={stop.id}>{stop.name}</option>)}</select></label>
         <label>Get off at<select disabled={bookingConfirmed} value={destinationId} onChange={event => changeRoute("destination", event.target.value)}>{destinationOptions.map(stop => <option key={stop.id} value={stop.id}>{stop.name}</option>)}</select></label>
@@ -95,7 +130,7 @@ export function BookingPanel({ journeyId, stops, initialSeats, signedIn, canBook
       )}
       <div className="booking-submit">
         <p>{selectedSeat ? `Seat ${selectedSeat} selected` : "Select an available seat"}</p>
-        <button className="button button-primary" type="button" disabled={!canBook || bookingConfirmed || !selectedSeat || !origin || !destination || submitting || loadingSeats} onClick={purchase}>{bookingConfirmed ? "Booking confirmed" : !canBook ? "Ticketing closed" : submitting ? "Booking…" : signedIn ? "Confirm booking" : "Sign in to book"}</button>
+        <button className="button button-primary" type="button" aria-disabled={!canBook || bookingConfirmed || !selectedSeat || !origin || !destination || submitting || loadingSeats} disabled={!canBook || bookingConfirmed || !selectedSeat || !origin || !destination || submitting || loadingSeats} onClick={purchase}>{bookingConfirmed ? "Booking confirmed" : !canBook ? "Ticketing closed" : submitting ? "Booking…" : signedIn ? "Confirm booking" : "Sign in to book"}</button>
       </div>
       {message ? <p className="booking-message" role="status">{message}</p> : null}
       {!canBook ? <p className="booking-disclaimer">Ticket purchases are available only while the operator has ticketing open.</p> : null}
