@@ -102,12 +102,21 @@ export async function markNoShow(db: Db, operatorId: string, ticketId: string) {
     });
     if (!ticket) throw new BookingError("TICKET_NOT_FOUND", "Ticket not found.");
     if (ticket.status === TicketStatus.NO_SHOW) return { ticket, alreadyNoShow: true };
+    const journeyIsOperational =
+      ticket.journey.status === JourneyStatus.IN_PROGRESS ||
+      ticket.journey.status === JourneyStatus.PAUSED ||
+      ticket.journey.status === JourneyStatus.BOARDING;
     if ((ticket.status !== TicketStatus.CONFIRMED && ticket.status !== TicketStatus.CHECKED_IN) ||
-        (ticket.journey.status !== JourneyStatus.IN_PROGRESS && ticket.journey.status !== JourneyStatus.PAUSED)) {
-      throw new BookingError("BOARDING_NOT_ALLOWED", "Only an unboarded ticket can be finalized as a no-show after departure.");
+        !journeyIsOperational) {
+      throw new BookingError("BOARDING_NOT_ALLOWED", "Only an unboarded ticket can be finalized as a no-show after the coach has departed.");
     }
-    if (ticket.originStop.status !== "DEPARTED" || ticket.journey.currentStopSequence !== ticket.originStop.sequence) {
-      throw new BookingError("BOARDING_NOT_ALLOWED", "No-show can only be finalized at the stop where this ticket's boarding was due.");
+    // A missed passenger can be confirmed as a no-show later in the route.
+    // Requiring the current stop to equal the origin made unresolved tickets
+    // impossible to clear once the coach advanced, blocking journey completion.
+    if (ticket.originStop.status !== "DEPARTED" ||
+        ticket.journey.currentStopSequence === null ||
+        ticket.journey.currentStopSequence < ticket.originStop.sequence) {
+      throw new BookingError("BOARDING_NOT_ALLOWED", "No-show can be finalized only after the coach has departed the passenger's origin stop.");
     }
 
     const reservation = await tx.seatReservation.findFirst({
