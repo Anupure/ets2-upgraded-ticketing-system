@@ -12,8 +12,8 @@ type Ticket = {
 
 const terminalTicketStatuses = new Set(["COMPLETED", "NO_SHOW", "CANCELLED", "REFUNDED"]);
 
-export function PassengerJourneyLive({ journeyId, journeyStatus, currentStopSequence, stops, tickets, signedIn }: {
-  journeyId: string; journeyStatus: string; currentStopSequence: number | null; stops: Stop[]; tickets: Ticket[]; signedIn: boolean;
+export function PassengerJourneyLive({ journeyStatus, currentStopSequence, stops, tickets, signedIn }: {
+  journeyStatus: string; currentStopSequence: number | null; stops: Stop[]; tickets: Ticket[]; signedIn: boolean;
 }) {
   const router = useRouter();
   const [busyTicket, setBusyTicket] = useState<string | null>(null);
