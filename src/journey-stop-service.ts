@@ -162,7 +162,21 @@ export async function departStop(db: Db, operatorId: string, journeyId: string, 
       throw new BookingError("BOARDING_NOT_ALLOWED", "The current stop must have an open boarding window before departure.");
     }
 
-    // The journey row lock serializes this check against disembarkation.
+    // The journey row lock serializes passenger resolution against boarding,
+    // no-show, and disembarkation mutations.
+    const dueToBoard = await tx.ticket.findMany({
+      where: {
+        journeyId,
+        status: { in: [TicketStatus.CONFIRMED, TicketStatus.CHECKED_IN] },
+        originStop: { sequence: stop.sequence },
+      },
+      select: { id: true },
+      take: 1,
+    });
+    if (dueToBoard.length > 0) {
+      throw new BookingError("BOARDING_NOT_ALLOWED", "Resolve every passenger due to board at this stop: confirm boarding or explicitly mark an unchecked-in passenger as no-show before departure.");
+    }
+
     const dueToDisembark = await tx.ticket.findMany({
       where: { journeyId, status: TicketStatus.BOARDED, destinationStop: { sequence: stop.sequence } },
       select: { id: true },

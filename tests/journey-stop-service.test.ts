@@ -35,4 +35,33 @@ describe("operator journey stop controls", () => {
     await expect(departStop(databaseWithInactiveOperator(), "user-1", "journey-1", "stop-1"))
       .rejects.toMatchObject({ code: "OPERATOR_REQUIRED" });
   });
+
+  it("blocks departure while a passenger due to board remains unresolved", async () => {
+    const stop = { id: "stop-1", sequence: 1, status: "BOARDING_OPEN" };
+    const journey = {
+      id: "journey-1",
+      status: "BOARDING",
+      currentStopSequence: 1,
+      stops: [stop, { id: "stop-2", sequence: 2, status: "UPCOMING" }],
+    };
+    const tx = {
+      user: { findUnique: vi.fn().mockResolvedValue({ id: "operator-1", role: "OPERATOR", status: "ACTIVE" }) },
+      $queryRaw: vi.fn().mockResolvedValue([{ id: "journey-1" }]),
+      journey: { findUnique: vi.fn().mockResolvedValue(journey) },
+      ticket: { findMany: vi.fn().mockResolvedValue([{ id: "ticket-pending-board" }]) },
+    };
+    const db = {
+      $transaction: vi.fn(async (callback: (client: typeof tx) => unknown) => callback(tx)),
+    } as never;
+
+    await expect(departStop(db, "operator-1", "journey-1", "stop-1"))
+      .rejects.toMatchObject({ code: "BOARDING_NOT_ALLOWED" });
+    expect(tx.ticket.findMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({
+        journeyId: "journey-1",
+        status: { in: ["CONFIRMED", "CHECKED_IN"] },
+        originStop: { sequence: 1 },
+      }),
+    }));
+  });
 });
