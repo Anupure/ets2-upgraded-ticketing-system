@@ -21,14 +21,13 @@ Previously validated by the project owner:
 - Existing smoke coverage includes public landing page, operator authorization protection, and anonymous API rejection.
 - Full passenger booking browser E2E and full journey lifecycle browser E2E remain incomplete.
 - Security dependency upgrades were deliberately deferred while end-to-end functionality is prioritized.
-- Do not infer that open PRs are merged. As of this roadmap update, PR #11 and PR #12 are open; PR #12 is stacked on PR #11 and requires PR #11 to merge first, then PR #12 to be retargeted to master.
+- PR #11 and PR #12 were superseded by clean replacement work; see the current open PRs for the route-label and seat-map changes.
 
 ## Phase 0 — Stabilize current work
 
 - Review and complete PR #11: passenger pickup/drop labels and route timeline.
 - Review and complete PR #12: left-hand-drive, coach-shaped 2+2 seat selection map.
-- Validate seat map visually and against actual persisted seat row/column data.
-- Preserve segment-aware seat availability and existing booking API behaviour.
+- Validate the left-hand-drive seat map visually against persisted row/column data, including the final partial row, and preserve segment-aware availability and booking safeguards.
 - Reconfirm tests, typecheck, build, and browser smoke tests after integration.
 - Do not merge pull requests without explicit project-owner authorization.
 
@@ -42,8 +41,10 @@ Previously validated by the project owner:
 4. Separate onboarding completion from operator authorization.
 5. Clarify journey management entry points and operator access state.
 6. Build the central operational dashboard around active journey status, capacity, manifest, boarding/deboarding, route progress, and alerts.
-7. Keep secondary controls in focused pages/panels rather than overcrowding the dashboard.
-8. Add or improve tests for navigation, role-gated routes, and operator authorization.
+7. Require every passenger action due at a stop to be resolved before the operator can depart: passengers due to board must be confirmed boarded if checked in, or explicitly marked no-show if they did not check in; passengers due to alight must be confirmed disembarked.
+8. Enforce the departure gate in the transactional server-side stop lifecycle service, not only in the UI. Show the operator a clear list/count of unresolved passengers and the action needed; do not silently auto-resolve them.
+9. Keep secondary controls in focused pages/panels rather than overcrowding the dashboard.
+10. Add tests for departure blocked by pending boardings, checked-in passengers awaiting physical boarding confirmation, unchecked-in no-shows, pending disembarkations, successful departure after resolution, and concurrent stop actions.
 
 **Acceptance direction**
 - A user can reach the relevant passenger and operator pages from the home page.
@@ -51,6 +52,9 @@ Previously validated by the project owner:
 - An onboarded but unauthorized user cannot operate a journey.
 - Unauthorized API calls remain rejected.
 - Dashboard state is based on server data and remains correct after refresh.
+- The server refuses departure while any boarding or disembarking action due at the current stop is unresolved.
+- The operator can resolve each pending boarding as physically boarded or no-show before departure; no-show is not inferred from a missed check-in alone without an explicit operator action.
+- All passengers due to disembark must be explicitly confirmed disembarked before departure.
 
 ## Phase 2 — Passenger identity and profile experience
 
