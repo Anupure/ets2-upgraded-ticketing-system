@@ -108,15 +108,21 @@ export async function markNoShow(db: Db, operatorId: string, ticketId: string) {
       ticket.journey.status === JourneyStatus.BOARDING;
     if ((ticket.status !== TicketStatus.CONFIRMED && ticket.status !== TicketStatus.CHECKED_IN) ||
         !journeyIsOperational) {
-      throw new BookingError("BOARDING_NOT_ALLOWED", "Only an unboarded ticket can be finalized as a no-show after the coach has departed.");
+      throw new BookingError("BOARDING_NOT_ALLOWED", "Only an unboarded ticket can be finalized as a no-show during an active journey.");
     }
-    // A missed passenger can be confirmed as a no-show later in the route.
-    // Requiring the current stop to equal the origin made unresolved tickets
-    // impossible to clear once the coach advanced, blocking journey completion.
-    if (ticket.originStop.status !== "DEPARTED" ||
-        ticket.journey.currentStopSequence === null ||
-        ticket.journey.currentStopSequence < ticket.originStop.sequence) {
-      throw new BookingError("BOARDING_NOT_ALLOWED", "No-show can be finalized only after the coach has departed the passenger's origin stop.");
+    const isAtOriginBeforeDeparture =
+      ticket.originStop.status === "BOARDING_OPEN" &&
+      ticket.journey.status === JourneyStatus.BOARDING &&
+      ticket.journey.currentStopSequence === ticket.originStop.sequence;
+    const originAlreadyDeparted =
+      ticket.originStop.status === "DEPARTED" &&
+      ticket.journey.currentStopSequence !== null &&
+      ticket.journey.currentStopSequence >= ticket.originStop.sequence;
+    if (!isAtOriginBeforeDeparture && !originAlreadyDeparted) {
+      throw new BookingError("BOARDING_NOT_ALLOWED", "No-show can be finalized only while boarding is open at the passenger's origin, or later after that stop has departed.");
+    }
+    if (isAtOriginBeforeDeparture && ticket.checkedInAt !== null) {
+      throw new BookingError("BOARDING_NOT_ALLOWED", "A checked-in passenger must be physically confirmed boarded; only a passenger who has not checked in can be marked no-show before departure.");
     }
 
     const reservation = await tx.seatReservation.findFirst({
