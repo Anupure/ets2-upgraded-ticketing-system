@@ -156,11 +156,7 @@ integration("PostgreSQL passenger lifecycle", () => {
         state: "OCCUPIED", passenger: { displayName: "Passenger One" },
       });
   
-      await departStop(prisma, operator.id, journey.id, origin.id);
-      await arriveAtStop(prisma, operator.id, journey.id, middle.id);
-
-      // The origin manifest must still be able to resolve a missed passenger
-      // after the coach has advanced to a later stop.
+      // Resolve the passenger who did not check in before the coach departs.
       await markNoShow(prisma, operator.id, noShow.ticket.id);
       const noShowState = await prisma.ticket.findUniqueOrThrow({
         where: { id: noShow.ticket.id }, include: { seatReservations: true, passengerJourney: true },
@@ -169,6 +165,8 @@ integration("PostgreSQL passenger lifecycle", () => {
       expect(noShowState.passengerJourney?.status).toBe(PassengerJourneyStatus.NO_SHOW);
       expect(noShowState.seatReservations[0]?.status).toBe(SeatReservationStatus.RELEASED);
 
+      await departStop(prisma, operator.id, journey.id, origin.id);
+      await arriveAtStop(prisma, operator.id, journey.id, middle.id);
       await openBoardingAtStop(prisma, operator.id, journey.id, middle.id);
       await expect(departStop(prisma, operator.id, journey.id, middle.id))
         .rejects.toMatchObject({ code: "BOARDING_NOT_ALLOWED" });
