@@ -71,7 +71,7 @@ export function PassengerManifest({ journeyId, stopId, stopStatus, passengers }:
                   <div className="manifest-person-details">
                     <strong>{passenger.displayName}</strong>
                     <small>{passenger.ticketNumber} · Seat {passenger.seatNumber ?? "—"}</small>
-                    <span>{passenger.origin} → {passenger.destination}</span>
+                    <span className="manifest-route-stop"><small>Pickup stop</small><strong>{passenger.origin}</strong></span><span className="manifest-route-stop"><small>Drop-off stop</small><strong>{passenger.destination}</strong></span>
                   </div>
                 </div>
                 <div className="manifest-status">
