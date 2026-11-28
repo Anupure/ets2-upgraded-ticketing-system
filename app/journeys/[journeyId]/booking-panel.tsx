@@ -95,6 +95,9 @@ export function BookingPanel({ journeyId, stops, initialSeats, signedIn, canBook
       setMessage(`Ticket ${data.ticket.ticketNumber} confirmed. Your seat is reserved.`);
       setBookingConfirmed(true);
       animateBalanceDown(Number(ticketPrice));
+      if (startingBalance !== null) {
+        window.dispatchEvent(new CustomEvent("wallet:balance-updated", { detail: { balance: Math.max(0, startingBalance - Number(ticketPrice)) } }));
+      }
       idempotencyKey.current = null;
       const refresh = await fetch(`/api/journeys/${journeyId}/seats?from=${origin.sequence}&to=${destination.sequence}`);
       if (refresh.ok) setSeats((await refresh.json()).seats as Seat[]);
@@ -109,13 +112,6 @@ export function BookingPanel({ journeyId, stops, initialSeats, signedIn, canBook
   const destinationOptions = stops.filter(stop => !origin || stop.sequence > origin.sequence);
   return (
     <section className="booking-panel">
-      {signedIn ? (
-        <div className="token-balance" aria-live="polite" aria-label={tokenBalance === null ? "Token balance unavailable" : `Current token balance: ${tokenBalance} tokens`}>
-          <span className="token-balance-label">YOUR AVAILABLE TOKENS</span>
-          <strong key={tokenBalance === null ? "unavailable" : "balance"}>{tokenBalance === null ? "—" : tokenBalance.toLocaleString("en-IN")}</strong>
-          <span className="token-balance-unit">TOKENS</span>
-        </div>
-      ) : null}
       <div className="booking-controls">
         <label>Board at<select disabled={bookingConfirmed} value={originId} onChange={event => changeRoute("origin", event.target.value)}>{stops.map(stop => <option key={stop.id} value={stop.id}>{stop.name}</option>)}</select></label>
         <label>Get off at<select disabled={bookingConfirmed} value={destinationId} onChange={event => changeRoute("destination", event.target.value)}>{destinationOptions.map(stop => <option key={stop.id} value={stop.id}>{stop.name}</option>)}</select></label>
