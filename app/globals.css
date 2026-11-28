@@ -166,7 +166,10 @@ button{font:inherit}
 .bus-driver small{font-size:7px;color:var(--accent);letter-spacing:.6px}
 .bus-front-label{grid-column:4 / 6;justify-self:end;color:#8293a8;font:9px 'DM Mono',monospace;letter-spacing:1.2px}
 .bus-seat-rows{display:grid;gap:9px;padding:18px 0}
-.bus-seat-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr)) 30px repeat(2,minmax(0,1fr));gap:8px;align-items:center;min-height:48px}
+.bus-seat-row{display:grid;grid-template-columns:minmax(0,1fr) 30px minmax(0,1fr);gap:8px;align-items:center;min-height:48px}
+.bus-seat-pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;min-width:0}
+.bus-seat-pair .seat-button{width:100%;min-width:0}
+.bus-aisle{width:30px;min-height:100%}
 .bus-seat-row .seat-button{width:100%;min-width:0;min-height:46px;border-radius:10px 10px 7px 7px;display:grid;place-items:center;position:relative;font-size:12px}
 .bus-seat-row .seat-button::before{content:"";position:absolute;inset:3px 3px auto;height:4px;border-radius:4px;background:#ffffff20}
 .bus-seat-row .seat-button span{padding-top:4px}
@@ -177,4 +180,6 @@ button{font:inherit}
 .bus-seat-row .seat-unavailable{background:#252d38;border-color:#394555;color:#778396}
 .bus-seat-row .seat-selected{outline:2px solid var(--accent);outline-offset:2px;background:#2c421b;color:#eaffd1}
 .bus-rear-label{text-align:center;padding-top:10px;border-top:1px dashed #40516a;color:#8293a8;font:9px 'DM Mono',monospace;letter-spacing:1.2px}
-@media(max-width:520px){.bus-seat-map{padding:13px 10px 11px;border-radius:22px 22px 14px 14px}.bus-seat-row{grid-template-columns:repeat(2,minmax(0,1fr)) 18px repeat(2,minmax(0,1fr));gap:5px;min-height:42px}.bus-seat-row .seat-button{min-height:42px;font-size:11px}.bus-front{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 18px minmax(0,1fr) minmax(0,1fr);gap:5px}.bus-driver{padding:6px 8px;grid-template-columns:30px 1fr;font-size:9px}.bus-driver-wheel{width:28px;height:28px;font-size:16px}.bus-front-label{font-size:7px}}
+@media(max-width:520px){.bus-seat-map{padding:13px 10px 11px;border-radius:22px 22px 14px 14px}.bus-seat-row{grid-template-columns:minmax(0,1fr) 18px minmax(0,1fr);gap:5px;min-height:42px}
+.bus-seat-pair{gap:5px}
+.bus-aisle{width:18px}.bus-seat-row .seat-button{min-height:42px;font-size:11px}.bus-front{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 18px minmax(0,1fr) minmax(0,1fr);gap:5px}.bus-driver{padding:6px 8px;grid-template-columns:30px 1fr;font-size:9px}.bus-driver-wheel{width:28px;height:28px;font-size:16px}.bus-front-label{font-size:7px}}
