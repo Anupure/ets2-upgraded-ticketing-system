@@ -18,32 +18,7 @@ export function BookingPanel({ journeyId, stops, initialSeats, signedIn, canBook
   const [message, setMessage] = useState(hasActiveTicket ? "You already have an active ticket for this journey." : "");
   const [bookingConfirmed, setBookingConfirmed] = useState(hasActiveTicket);
   const startingBalance = initialTokenBalance === null ? null : Number(initialTokenBalance);
-  const [tokenBalance, setTokenBalance] = useState<number | null>(startingBalance);
-  const balanceRef = useRef<number | null>(startingBalance);
-  const animationFrame = useRef<number | null>(null);
   const idempotencyKey = useRef<string | null>(null);
-
-  function animateBalanceDown(cost: number) {
-    if (balanceRef.current === null || !Number.isFinite(cost)) return;
-    if (animationFrame.current !== null) cancelAnimationFrame(animationFrame.current);
-    const from = balanceRef.current;
-    const to = Math.max(0, from - cost);
-    const startedAt = performance.now();
-    const duration = 850;
-    const step = (now: number) => {
-      const progress = Math.min(1, (now - startedAt) / duration);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      const next = Math.round(from + (to - from) * eased);
-      setTokenBalance(next);
-      if (progress < 1) animationFrame.current = requestAnimationFrame(step);
-      else { balanceRef.current = to; animationFrame.current = null; }
-    };
-    animationFrame.current = requestAnimationFrame(step);
-  }
-
-  useEffect(() => () => {
-    if (animationFrame.current !== null) cancelAnimationFrame(animationFrame.current);
-  }, []);
   const origin = stops.find(stop => stop.id === originId);
   const destination = stops.find(stop => stop.id === destinationId);
 
@@ -94,7 +69,6 @@ export function BookingPanel({ journeyId, stops, initialSeats, signedIn, canBook
       if (!response.ok) throw new Error(data.error?.message || "Booking failed.");
       setMessage(`Ticket ${data.ticket.ticketNumber} confirmed. Your seat is reserved.`);
       setBookingConfirmed(true);
-      animateBalanceDown(Number(ticketPrice));
       if (startingBalance !== null) {
         window.dispatchEvent(new CustomEvent("wallet:balance-updated", { detail: { balance: Math.max(0, startingBalance - Number(ticketPrice)) } }));
       }
