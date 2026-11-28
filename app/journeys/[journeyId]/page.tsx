@@ -5,6 +5,7 @@ import { getSeatMap } from "@/src/booking-service.js";
 import { prisma } from "@/src/prisma";
 import { BookingPanel } from "./booking-panel";
 import { PassengerJourneyLive } from "./passenger-journey-live";
+import { WalletBadge } from "@/app/wallet-badge";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,7 @@ export default async function JourneyPage({ params }: { params: Promise<{ journe
     }),
   ]);
   if (!journey) notFound();
-  const [initialSeats, passengerTickets] = await Promise.all([
+  const [initialSeats, passengerTickets, wallet] = await Promise.all([
     getSeatMap(prisma, journey.id, journey.stops[0]?.sequence, journey.stops[1]?.sequence),
     session?.user?.id ? prisma.ticket.findMany({
       where: { journeyId: journey.id, userId: session.user.id },
@@ -33,12 +34,14 @@ export default async function JourneyPage({ params }: { params: Promise<{ journe
         seatReservations: { select: { seat: { select: { seatNumber: true } } } },
       },
     }) : Promise.resolve([]),
+    session?.user?.id ? prisma.wallet.findUnique({ where: { userId: session.user.id }, select: { balance: true } }) : Promise.resolve(null),
   ]);
   const stops = journey.stops.map(stop => ({ id: stop.id, sequence: stop.sequence, name: stop.name }));
+  const hasActiveTicket = passengerTickets.some(ticket => ["CONFIRMED", "CHECKED_IN", "BOARDED"].includes(ticket.status));
 
   return (
     <main className="site-shell">
-      <header className="topbar"><Link className="brand" href="/">ROGUE<span>RPM</span></Link><Link href="/">← Back</Link></header>
+      <header className="topbar"><Link className="brand" href="/">ROGUE<span>RPM</span></Link><nav className="top-actions" aria-label="Journey navigation">{session?.user?.id ? <WalletBadge initialBalance={wallet?.balance.toString() ?? null} /> : null}<Link href="/">← Back</Link></nav></header>
       <section className="content-section">
         <p className="eyebrow">JOURNEY #{journey.journeyNumber.toString()}</p>
         <h1 className="journey-title">{journey.name}</h1>
@@ -56,7 +59,7 @@ export default async function JourneyPage({ params }: { params: Promise<{ journe
           signedIn={Boolean(session?.user?.id)}
         />
         {journey.status !== "COMPLETED" ? <div className="journey-layout journey-layout-booking">
-          <div><h2>Choose your seat</h2><BookingPanel journeyId={journey.id} stops={stops} initialSeats={initialSeats} signedIn={Boolean(session?.user?.id)} canBook={journey.status === "BOOKING_OPEN"} /></div>
+          <div><h2>Choose your seat</h2><BookingPanel journeyId={journey.id} stops={stops} initialSeats={initialSeats} signedIn={Boolean(session?.user?.id)} canBook={journey.status === "BOOKING_OPEN"} hasActiveTicket={hasActiveTicket} initialTokenBalance={wallet?.balance.toString() ?? null} ticketPrice={journey.ticketPrice.toString()} /></div>
         </div> : null}
       </section>
     </main>

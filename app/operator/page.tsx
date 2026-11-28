@@ -19,10 +19,11 @@ export default async function OperatorPage() {
 
   return (
     <main className="site-shell">
-      <header className="topbar"><Link className="brand" href="/">ROGUE<span>RPM</span></Link><Link href="/">← Public site</Link></header>
+      <header className="topbar"><Link className="brand" href="/">ROGUE<span>RPM</span></Link><nav className="top-actions" aria-label="Operator navigation"><Link href="/">Public site</Link></nav></header>
       <section className="content-section operator-section">
         <p className="eyebrow">CONTROL ROOM</p><h1>Operator journeys</h1>
-        <div className="operator-create-action"><Link className="button button-primary" href="/operator/journeys/new">+ Create journey</Link></div>\n        <p className="muted">Manage the live journey from a larger screen when possible. The layout remains usable on mobile for on-road operations.</p>
+        <div className="operator-create-action"><Link className="button button-primary" href="/operator/journeys/new">+ Create journey</Link></div>
+        <p className="muted">Manage the live journey from a larger screen when possible. The layout remains usable on mobile for on-road operations.</p>
         <div className="operator-list">
           {journeys.map(journey => <article className="operator-row" key={journey.id}><div><small>JOURNEY #{journey.journeyNumber.toString()}</small><h2>{journey.name}</h2><p className="muted">{journey.stops.length} stops · {journey.status.replaceAll("_", " ")}</p></div><Link className="button button-secondary" href={`/operator/journeys/${journey.id}`}>Open control</Link></article>)}
           {journeys.length === 0 ? <div className="empty-state"><h3>No journeys to manage</h3><p>Create a journey using the operator tools once journey creation UI is enabled.</p></div> : null}

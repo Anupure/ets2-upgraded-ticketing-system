@@ -25,7 +25,7 @@ export default async function OperatorJourneyPage({ params }: { params: Promise<
   const { journey, bus, stops, passengerCounts } = dashboard;
   return (
     <main className="site-shell">
-      <header className="topbar"><Link className="brand" href="/">ROGUE<span>RPM</span></Link><Link href="/operator">← Operator journeys</Link></header>
+      <header className="topbar"><Link className="brand" href="/">ROGUE<span>RPM</span></Link><nav className="top-actions" aria-label="Operator navigation"><Link href={`/journeys/${journey.id}`}>Passenger view</Link><Link href="/operator/journeys/new">Create journey</Link><Link href="/operator">All journeys</Link></nav></header>
       <section className="content-section operator-section">
         <OperatorDashboardAutoRefresh />
         <p className="eyebrow">CONTROL ROOM · JOURNEY #{journey.journeyNumber}</p>
