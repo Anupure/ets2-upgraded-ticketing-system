@@ -11,6 +11,8 @@ The product requirements are in [PRODUCT_REQUIREMENTS.md](./PRODUCT_REQUIREMENTS
 
 ## Current known state
 
+- PR #14 (home navigation and operator onboarding foundation) was merged into `master` on 2026-11-28. The project owner locally validated typecheck, unit/integration tests, production build, and Playwright checks; GitHub Actions validation also succeeded for the final PR head.
+
 Previously validated by the project owner:
 - Test suite: 31 tests passed across 10 files using `npm test -- --maxWorkers=1`.
 - TypeScript typecheck passed.
@@ -31,6 +33,8 @@ Previously validated by the project owner:
 - Do not merge pull requests without explicit project-owner authorization.
 
 ## Phase 1 — Home page, navigation, and operational foundation (next priority)
+
+**Status:** Navigation/onboarding foundation is delivered by merged PR #14. The central Operator Control Room remains the next major Phase 1 deliverable.
 
 1. Make the home page a clear navigation hub for passenger and driver/operator workflows.
 2. Add direct links to all relevant pages and role-appropriate entry points.
@@ -122,6 +126,15 @@ Previously validated by the project owner:
 
 Pricing, provider, tax handling, plan tiers, grace periods, retention, disputes, and commercial terms are not decided.
 
+## Feature request intake and phase discipline
+
+- Treat new ideas, requested changes, screenshots, and reminders from the project owner as product backlog input, not automatic instructions to implement immediately.
+- For every suggestion, first map it to an existing requirement and its appropriate roadmap phase.
+- If it belongs to a later phase, record it in that phase (or add it there if missing), tell the project owner where it is planned, and defer implementation until that phase.
+- If it belongs to the current phase, assess dependencies and acceptance criteria before implementing.
+- If the request changes an existing product decision or introduces a conflict, surface the conflict and ask for a decision rather than silently changing scope.
+- Keep the requirements and roadmap as the source of truth so ideas raised early are not lost.
+
 ## Cross-cutting quality gates
 
 - Server-side authorization for every privileged operation.
@@ -145,3 +158,5 @@ Pricing, provider, tax handling, plan tiers, grace periods, retention, disputes,
 - 2026-11-28: Future tenant service must prevent Tenant Owners from reselling, sublicensing, or creating sub-tenants.
 - 2026-11-28: SSL/TLS certificate issuance, renewal, and health checks are required considerations for future automated custom/subdomain provisioning.
 - 2026-11-28: No cancellation/refund workflow under current product direction.
+
+- 2026-11-28: Project owner requested strict phase discipline: new ideas are to be mapped to the correct roadmap phase and documented immediately; defer implementation when they belong to a later phase, and explicitly tell the owner where they are planned.
