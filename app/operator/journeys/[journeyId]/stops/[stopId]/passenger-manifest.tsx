@@ -62,7 +62,9 @@ export function PassengerManifest({ journeyId, stopId, stopStatus, passengers }:
           {passengers.map((passenger) => {
             const canBoard = stopStatus === "BOARDING_OPEN" && passenger.stopAction === "BOARD" && passenger.ticketStatus === "CHECKED_IN";
             const canDisembark = (stopStatus === "ARRIVED" || stopStatus === "BOARDING_OPEN") && passenger.stopAction === "ALIGHT" && passenger.ticketStatus === "BOARDED";
-            const canNoShow = stopStatus === "DEPARTED" && passenger.stopAction === "BOARD" && ["CONFIRMED", "CHECKED_IN"].includes(passenger.ticketStatus);
+            const canNoShow = passenger.stopAction === "BOARD" &&
+              ((stopStatus === "BOARDING_OPEN" && passenger.ticketStatus === "CONFIRMED") ||
+               (stopStatus === "DEPARTED" && ["CONFIRMED", "CHECKED_IN"].includes(passenger.ticketStatus)));
             const terminal = ["COMPLETED", "NO_SHOW", "LEFT_BEHIND"].includes(passenger.ticketStatus);
             return (
               <article className="manifest-row" key={passenger.ticketId}>
