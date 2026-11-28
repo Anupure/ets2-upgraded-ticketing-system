@@ -117,6 +117,10 @@ Support the operator workflow for:
 - Assigning authorized operators.
 - Configuring mandatory scheduled breaks at selected rest stops.
 - Reviewing journey status and operational history.
+- At each stop, require the operator to resolve every passenger action due there before departure.
+- For a passenger due to board: confirm physically boarded when checked in, or explicitly mark no-show when the passenger has not checked in.
+- For a passenger due to disembark: explicitly confirm disembarked.
+- Block departure server-side and transactionally while any due boarding or disembarking action remains unresolved; provide actionable pending-passenger feedback in the operator UI.
 
 ### 5.4 Central operator dashboard
 The dashboard is the operational control centre, not just a ticket list.
