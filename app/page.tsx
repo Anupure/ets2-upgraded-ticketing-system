@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { auth, signOut } from "@/src/auth";
 import { prisma } from "@/src/prisma";
+import { WalletBadge } from "@/app/wallet-badge";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,9 @@ export default async function HomePage() {
       },
     }),
   ]);
+  const [wallet] = await Promise.all([
+    session?.user?.id ? prisma.wallet.findUnique({ where: { userId: session.user.id }, select: { balance: true } }) : Promise.resolve(null),
+  ]);
   const isOperator = session?.user?.role === "OPERATOR" || session?.user?.role === "ADMIN";
 
   return (
@@ -28,6 +32,7 @@ export default async function HomePage() {
           {isOperator ? <Link href="/operator">Operator dashboard</Link> : null}
           {session?.user ? (
             <>
+              <WalletBadge initialBalance={wallet?.balance.toString() ?? null} /> 
               <span className="user-chip">{session.user.name || "Passenger"}</span>
               <form action={async () => { "use server"; await signOut({ redirectTo: "/" }); }}>
                 <button className="button button-quiet" type="submit">Sign out</button>
